@@ -26,7 +26,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import torch
 
+pytest.importorskip("transformers")
 torch = pytest.importorskip("torch")  # CPU torch suffices; absent from the [dev] CI env
 
 # ------------------------------------------------------------------ #
