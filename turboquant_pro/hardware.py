@@ -40,7 +40,7 @@ try:
     import cupy as cp  # type: ignore[import-untyped]
 
     _HAS_CUPY = True
-except Exception:
+except ImportError:
     cp = None  # type: ignore[assignment]
     _HAS_CUPY = False
 

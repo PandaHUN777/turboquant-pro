@@ -16,7 +16,6 @@ except Exception:
     HAS_CUPY = False
 
 
-@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
 class TestPackBinary:
     def test_basic_packing(self) -> None:
         # 2 vectors, 8 dims

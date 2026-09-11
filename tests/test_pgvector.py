@@ -25,12 +25,6 @@ from turboquant_pro.pgvector import (
     TurboQuantPGVector,
 )
 
-try:
-    import importlib.util
-    HAS_CUPY = importlib.util.find_spec("cupy") is not None
-except Exception:
-    HAS_CUPY = False
-
 # ------------------------------------------------------------------ #
 # Helpers                                                             #
 # ------------------------------------------------------------------ #
@@ -177,7 +171,6 @@ class TestBatchOperations:
 # ------------------------------------------------------------------ #
 
 
-@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
 class TestByteaSerialization:
     """Test serialize/deserialize for PostgreSQL bytea storage."""
 
