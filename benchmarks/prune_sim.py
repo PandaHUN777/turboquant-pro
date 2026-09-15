@@ -70,6 +70,14 @@ def run(name, x, out_dim, bits, nq=100, k=50, seed=0):
             bounds = {"exact": part + rest_max}
             for z in zs:
                 bounds[f"z{z:g}"] = part + rest_mu + z * rest_sd
+            # ADSampling-style: extrapolate this vector's own centered partial sum to the
+            # remaining dims (a neighbour that scores high early keeps scoring high), with
+            # z standard deviations of the extrapolation error
+            mu_pre = mean_j[:m].sum()
+            scaled = part + rest_mu + (part - mu_pre) * (d - m) / m
+            sd_scale = np.sqrt(var_j[m:].sum() + var_j[:m].sum() * ((d - m) / m) ** 2)
+            for z in zs:
+                bounds[f"ad{z:g}"] = scaled + z * sd_scale
             for bname, ub in bounds.items():
                 ub_score = (qbias[qi] + vn * (scale * ub + bias)) * vr
                 pr = ub_score < thr
@@ -111,6 +119,12 @@ def main():
     ap.add_argument("--data-root", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--rows", type=int, default=200_000)
+    ap.add_argument(
+        "--configs",
+        default="dbpedia-3large-1536:dbpedia3072:1536:2,dbpedia-3large-1536:dbpedia3072:1536:4,"
+        "dbpedia-3large-1536:dbpedia3072:384:4,wiki-1024:wiki1024:1024:2,"
+        "wiki-1024:wiki1024:1024:4,wiki-1024:wiki1024:256:4",
+    )
     a = ap.parse_args()
 
     def load(d):
@@ -121,14 +135,12 @@ def main():
         return x / np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-30)
 
     rows = []
-    for name, d, dims in (
-        ("dbpedia-3large-1536", "dbpedia3072", (1536, 384)),
-        ("wiki-1024", "wiki1024", (1024, 256)),
-    ):
-        x = load(d)
-        for od in dims:
-            for bits in (2, 4):
-                rows += run(name, x, od, bits)
+    configs = [c.split(":") for c in a.configs.split(",")]
+    loaded = {}
+    for name, d, od, bits in configs:
+        if d not in loaded:
+            loaded = {d: load(d)}
+        rows += run(name, loaded[d], int(od), int(bits))
     with open(a.out, "w") as f:
         json.dump(rows, f, indent=1)
 
