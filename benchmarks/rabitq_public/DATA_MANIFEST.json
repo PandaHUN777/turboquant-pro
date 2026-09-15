@@ -1,0 +1,135 @@
+{
+ "note": "Data identities of the registered arms, hashed from the Atlas copies on 2026-09-15 before any cell ran. The NRP staging job recomputes the same hashes; a mismatch is recorded as an amendment, never silently accepted.",
+ "sources": {
+  "ann": "http://ann-benchmarks.com/<name>.hdf5 (file sha256; Atlas copy /archive/ahb-sjsu/turboquant_bench)",
+  "wiki1024": "CohereLabs/wikipedia-2023-11-embed-multilingual-v3, config en, column emb; parquet files sorted, rows in file order, 1M-row parts (payload sha256 excludes the .npy header)",
+  "dbpedia1536": "KShivendu/dbpedia-entities-openai-1M, config data, column openai (text-embedding-ada-002); 990,000-row corpus, queries.npy = the next 1,000 rows",
+  "dbpedia3072": "Qdrant/dbpedia-entities-openai3-text-embedding-3-large-1536-1M, config data, column text-embedding-3-large-1536-embedding; 990,000-row corpus, queries.npy = the next 1,000 rows"
+ },
+ "files": {
+  "wiki1024/part_000.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "72ad26e373000b5bb4fb090e077e44817ebd6ae2fe05e976af56aa1e4d0d4190"
+  },
+  "wiki1024/part_001.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "71d535c341a06b44a45e74312209bae09f49426eb497b0f8f52d8cb62216938a"
+  },
+  "wiki1024/part_002.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "07f6fefba4cfd57fc710c71ad0128ce797cb9bd30bb2f5f5a24e737410e1516b"
+  },
+  "wiki1024/part_003.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "eb2bc33348d81b459b24bdb78cce736fb7bc8d2673d719704a89e2d5da6b16e5"
+  },
+  "wiki1024/part_004.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "13ea38cc17934106e7c7aac44b088e6ba9159f4bc55ddd8408dbac91d8a75145"
+  },
+  "wiki1024/part_005.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "3117eafe6e6590487173f285415847a5a17cbe792372b871a7eba0ce4871e8c1"
+  },
+  "wiki1024/part_006.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "2c59f6d5287cb782e186a3a664a27ae48683f0a1e7b86129a348446ffcb5f3d2"
+  },
+  "wiki1024/part_007.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "2c5353895f3d599f152829550a9a6c7694f546329978c23590b8c40666122763"
+  },
+  "wiki1024/part_008.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "8fd71f294529ea9889567ad27b6aa6392258a8c766831349f52f3b9beae6dec9"
+  },
+  "wiki1024/part_009.npy": {
+   "shape": [
+    1000000,
+    1024
+   ],
+   "dtype": "float32",
+   "sha256": "484e5f6e1c6eaa497780c5f4e2f4ca7bf8ee4b2126a7cceddf4a98ab2c362ec0"
+  },
+  "dbpedia1536/part_000.npy": {
+   "shape": [
+    990000,
+    1536
+   ],
+   "dtype": "float32",
+   "sha256": "0a29aee9db30fd307c3169df8357e6d333f8eee02c62ffc7cc6095781d1ed82d"
+  },
+  "dbpedia1536/queries.npy": {
+   "shape": [
+    1000,
+    1536
+   ],
+   "dtype": "float32",
+   "sha256": "a0cd0c2f3dbfa3e25d6d56c87779b63bd5e8e7a164b8e49ee61729045255f8fa"
+  },
+  "dbpedia3072/part_000.npy": {
+   "shape": [
+    990000,
+    1536
+   ],
+   "dtype": "float32",
+   "sha256": "1a1d2a588df605dc3b4d90126ab06d8d90100d96084d4a13675bd0389b0b2d5d"
+  },
+  "dbpedia3072/queries.npy": {
+   "shape": [
+    1000,
+    1536
+   ],
+   "dtype": "float32",
+   "sha256": "b33b2ba8d62267d0a33c5cf73b00674dfdc91e60ed50db8cf1befe7f85d40167"
+  },
+  "ann/glove-100-angular.hdf5": {
+   "bytes": 485413888,
+   "sha256": "544af1d5e84e112cd4749571dcfd8ca109818a572f850af75a3a09e093a953c4"
+  },
+  "ann/nytimes-256-angular.hdf5": {
+   "bytes": 315208288,
+   "sha256": "6ad5d2cde6d6a6f21528d541901304ebfd40885d6ce6afae37bccbe278254a93"
+  },
+  "ann/deep-image-96-angular.hdf5": {
+   "bytes": 3848008288,
+   "sha256": "a0a44dfe80c58e63860862eeea2d34e62cff958dc3aec14fd65263d1d3c751f8"
+  }
+ }
+}
