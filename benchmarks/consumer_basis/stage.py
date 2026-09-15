@@ -19,6 +19,22 @@ import numpy as np
 from .arms import ARMS, REPO, REVISION
 
 
+def _drop_cache(path, flush=None):
+    """fsync and evict a file's page cache. Inside a 2 GiB cgroup the page cache of a
+    multi-GiB memory map is charged to the pod, and dirty pages OOM-killed the 1M-row
+    staging jobs (same finding as benchmarks/fleet/fleet_common.drop_page_cache)."""
+    if flush is not None:
+        flush()
+    if not hasattr(os, "posix_fadvise"):
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+        os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+    finally:
+        os.close(fd)
+
+
 def _extract(path, rows, out_path):
     import pyarrow.parquet as pq
 
@@ -44,6 +60,9 @@ def _extract(path, rows, out_path):
         if b > a:
             mm[fill : fill + (b - a)] = emb[a:b]
             fill += b - a
+            if fill % 100_000 < (b - a):
+                _drop_cache(out_path + ".tmp.npy", mm.flush)
+                _drop_cache(path)
         pos += n
         if pos >= hi:
             break
