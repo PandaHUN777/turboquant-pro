@@ -2,7 +2,8 @@
 
     python -m consumer_basis.stage --arm msmarco --root /data/cb
 
-Parquet row groups are streamed into memory maps, so memory is one batch. Writes
+Files are streamed to local disk and parquet batches to buffered writes, with fsync and
+page-cache eviction as they go, so memory stays near one batch. Writes
 corpus.npy, fit.npy, eval.npy and hashes.json (sha256 of each float32 payload) under
 <root>/<arm>/, and a DONE marker. The msmarco and msmarco-sym arms share one download.
 """
@@ -102,27 +103,42 @@ def _download(repo_file, cache_dir, chunk=8 << 20, evict_every=256 << 20):
 
 
 def _extract(path, rows, out_path):
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     # Plain buffered writes, not a memory map: pages written through a map stay mapped, so
     # fadvise cannot evict them, and on CephFS their writeback lagged until the 2 GiB pod was
     # OOM-killed (pyarrow's own memory stayed near 390 MiB, measured). Here dirty memory is
     # bounded by fsync + eviction every EVICT_ROWS rows.
+    # Anonymous memory also grew with rows extracted (724 -> 1,076 MiB over 120k -> 300k
+    # rows, pyarrow 25): per-row arrays from to_numpy() plus Arrow's pool holding freed
+    # buffers. One row group at a time, flat values reshaped without per-row objects, and the
+    # pool released after each group keep it flat.
     evict_rows = 50_000
     lo, hi = rows
     pf = pq.ParquetFile(path)
+    pool = pa.default_memory_pool()
     tmp = out_path + ".tmp.npy"
     f = None
     pos, fill, since = 0, 0, 0
+
+    def groups():
+        for g in range(pf.metadata.num_row_groups):
+            col = pf.read_row_group(g, columns=["emb"]).column(0).combine_chunks()
+            offsets = col.offsets.to_numpy()
+            width = int(offsets[1] - offsets[0])
+            assert np.all(np.diff(offsets) == width), "ragged embedding rows"
+            flat = col.values.to_numpy(zero_copy_only=False)[offsets[0] : offsets[-1]]
+            yield np.asarray(flat, np.float32).reshape(-1, width)
+            del col, flat
+            pool.release_unused()
+
     try:
-        for batch in pf.iter_batches(batch_size=20_000, columns=["emb"]):
-            n = batch.num_rows
+        for emb in groups():
+            n = len(emb)
             if pos + n <= lo:
                 pos += n
                 continue
-            emb = np.stack(batch.column(0).to_numpy(zero_copy_only=False)).astype(
-                np.float32
-            )
             a, b = max(lo - pos, 0), min(hi - pos, n)
             if f is None:
                 f = open(tmp, "wb")
