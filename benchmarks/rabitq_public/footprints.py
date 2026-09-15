@@ -76,6 +76,8 @@ def model_bytes(cell, threads):
         )
     elif m == "rabitqlib_ivf":
         L = cell["nlist"]
+        if ds in RAM_CORPUS_RABITQLIB:
+            total += n * d * 4  # corpus held in RAM for the build (see cell.py)
         # corpus copy is memory-mapped (page cache); allow one internal float32 copy of the
         # largest cluster batch plus the codes
         total += (
@@ -90,6 +92,9 @@ def model_bytes(cell, threads):
 # a GloVe rabitq_flat cell peaked near 0.6 GiB, and four 4-CPU / 2.5-GiB GloVe and NYTimes
 # calibration pods were deleted in one utilization sweep. Exempt pods are not swept.
 EXEMPT_ARMS = ("glove-100-angular", "nytimes-256-angular")
+# rabitqlib reads its build corpus in random order; memory-mapped over CephFS at 10M x 1024
+# that stalled in disk sleep, so this arm keeps the corpus in RAM.
+RAM_CORPUS_RABITQLIB = ("wiki1024-10m",)
 
 
 def cpu_for(cell):

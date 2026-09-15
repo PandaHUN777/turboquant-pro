@@ -232,7 +232,11 @@ def descriptor(item):
         "cell",
         {"atlas.io/cell": c["cell_id"][:63]},
     )
-    d.env["TQP_RBQ_SCRATCH"] = "/data/scratch"
+    ram = (
+        c["method"] == "rabitqlib_ivf"
+        and c["dataset"] in footprints.RAM_CORPUS_RABITQLIB
+    )
+    d.env["TQP_RBQ_SCRATCH"] = "ram" if ram else "/data/scratch"
     return d, 0.8 * cpu, est_gib
 
 

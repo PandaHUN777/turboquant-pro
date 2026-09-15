@@ -153,20 +153,27 @@ def m_rabitqlib_ivf(ds, c, threads):
     km.train(ds.train_sample(c["seed"], 40 * c["nlist"]))
     quant = faiss.IndexFlatL2(ds.dim)
     quant.add(km.centroids)
-    # rabitqlib.build takes the whole float32 corpus; a memory map on scratch storage keeps
-    # that copy in reclaimable page cache instead of anonymous memory (41 GiB at 10M x 1024).
+    # rabitqlib.build takes the whole float32 corpus. By default that copy is a memory map on
+    # scratch storage (reclaimable page cache, not anonymous memory). TQP_RBQ_SCRATCH=ram
+    # keeps it in RAM instead: on the 10M x 1024 arm the build reads the map in random order,
+    # and over CephFS that left the pod in disk sleep at 3% CPU.
     scratch = os.environ.get("TQP_RBQ_SCRATCH") or tempfile.gettempdir()
-    os.makedirs(scratch, exist_ok=True)
-    spath = os.path.join(scratch, f"{c['cell_id']}.corpus.npy")
-    data = np.lib.format.open_memmap(
-        spath, mode="w+", dtype=np.float32, shape=(ds.n, ds.dim)
-    )
+    spath = None
+    if scratch == "ram":
+        data = np.empty((ds.n, ds.dim), np.float32)
+    else:
+        os.makedirs(scratch, exist_ok=True)
+        spath = os.path.join(scratch, f"{c['cell_id']}.corpus.npy")
+        data = np.lib.format.open_memmap(
+            spath, mode="w+", dtype=np.float32, shape=(ds.n, ds.dim)
+        )
     cid = np.empty(ds.n, np.uint32)
     try:
         for s, blk in ds.blocks():
             data[s : s + len(blk)] = blk
             cid[s : s + len(blk)] = quant.search(blk, 1)[1][:, 0]
-        data.flush()
+        if spath:
+            data.flush()
         index = rabitqlib.IvfIndex(ds.dim, ds.n, c["nlist"], c["bits"], "l2")
         index.build(
             data,
@@ -177,7 +184,8 @@ def m_rabitqlib_ivf(ds, c, threads):
         )
     finally:
         del data
-        os.unlink(spath)
+        if spath:
+            os.unlink(spath)
     build = time.perf_counter() - t
     t = time.perf_counter()
     res = index.search(ds.queries, K, c["nlist"], True, threads)
