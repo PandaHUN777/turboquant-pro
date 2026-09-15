@@ -17,7 +17,7 @@ Platform rules enforced here as code, not memory (reference_nrp_job_policies.md)
   ``calibration`` phase runs one registered cell per (arm, method) sized by the model; the
   ``cells`` phase vetoes any cell whose class has no measured calibration result.
 - Jobs terminate by themselves, requests == limits (the renderer), ephemeral storage is
-  declared, and every pod is pinned to zone ucsd-suncave next to the Ceph volume.
+  declared, and every pod is pinned to zone ucsd-nrp, near the Ceph volume.
 """
 
 from __future__ import annotations
@@ -44,7 +44,9 @@ PVC = "tqp-rbq-data"
 CODE_CM = "tqp-rbq-code"
 IMAGE = "python:3.12"
 BATCH = "tqp-rbq-public"
-ZONE = {"topology.kubernetes.io/zone": "ucsd-suncave"}
+# ucsd-nrp: same campus as the SDSC Ceph; ucsd-suncave (15 GPU nodes, 180 CPUs) left 4-CPU
+# cells pending for 40+ minutes on 2026-09-15
+ZONE = {"topology.kubernetes.io/zone": "ucsd-nrp"}
 TQP_COMMIT = (
     "856c4cbbde960d05b15c63a6e1f2de2a97e0c810"  # full sha: GitHub fetch needs it
 )
