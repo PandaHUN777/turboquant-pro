@@ -16,7 +16,7 @@ for a given consumer, under a given budget, on given hardware, and to show why.
    (a top-k ranking, attention logits, a rerank stage), never through reconstruction error alone.
 2. **Budget-constrained.** Bytes per vector, memory, latency or throughput on the target hardware,
    and build time are constraints, measured rather than assumed.
-3. **Proven.** Every recommendation carries evidence of a declared kind (section 4), recorded so a
+3. **Proven.** Every recommendation carries evidence of a declared kind (section 2.6), recorded so a
    third party can replay it.
 
 The planner is to lossy representation what a query optimizer is to a database: a catalog of

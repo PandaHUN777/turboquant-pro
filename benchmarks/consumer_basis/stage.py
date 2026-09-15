@@ -35,6 +35,25 @@ def _drop_cache(path, flush=None):
         os.close(fd)
 
 
+def _mem():
+    """One-line memory breakdown: process anon RSS and this cgroup's charged pages (MiB)."""
+    out = []
+    try:
+        with open("/proc/self/status") as fh:
+            anon = next(ln for ln in fh if ln.startswith("RssAnon:"))
+        out.append(f"anon={int(anon.split()[1]) >> 10}")
+        with open("/sys/fs/cgroup/memory.current") as fh:
+            out.append(f"cgroup={int(fh.read()) >> 20}")
+        with open("/sys/fs/cgroup/memory.stat") as fh:
+            stat = dict(ln.split() for ln in fh)
+        for key in ("anon", "file", "file_dirty", "file_writeback", "shmem", "kernel"):
+            if key in stat:
+                out.append(f"{key}={int(stat[key]) >> 20}")
+    except (OSError, StopIteration, ValueError):
+        pass
+    return " ".join(out) + " MiB"
+
+
 def _download(repo_file, cache_dir, chunk=8 << 20, evict_every=256 << 20):
     """Stream one dataset file to local disk, evicting its page cache as it goes.
 
@@ -70,6 +89,10 @@ def _download(repo_file, cache_dir, chunk=8 << 20, evict_every=256 << 20):
                         since = 0
             _drop_cache(part)
             os.replace(part, dst)
+            print(
+                f"downloaded {repo_file} {os.path.getsize(dst) >> 20} MiB {_mem()}",
+                flush=True,
+            )
             return dst
         except Exception as e:  # noqa: BLE001
             wait = min(300, 10 * 2**attempt)
@@ -118,6 +141,11 @@ def _extract(path, rows, out_path):
                     _drop_cache(tmp)
                     _drop_cache(path)
                     since = 0
+                    if fill % 100_000 < evict_rows:
+                        print(
+                            f"{os.path.basename(out_path)} rows {fill} {_mem()}",
+                            flush=True,
+                        )
             pos += n
             if pos >= hi:
                 break
