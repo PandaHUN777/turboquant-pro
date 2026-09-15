@@ -45,7 +45,9 @@ CODE_CM = "tqp-rbq-code"
 IMAGE = "python:3.12"
 BATCH = "tqp-rbq-public"
 ZONE = {"topology.kubernetes.io/zone": "ucsd-suncave"}
-TQP_COMMIT = "856c4cb"
+TQP_COMMIT = (
+    "856c4cbbde960d05b15c63a6e1f2de2a97e0c810"  # full sha: GitHub fetch needs it
+)
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
 FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factors log
 
