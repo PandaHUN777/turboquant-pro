@@ -35,6 +35,49 @@ def _drop_cache(path, flush=None):
         os.close(fd)
 
 
+def _download(repo_file, cache_dir, chunk=8 << 20, evict_every=256 << 20):
+    """Stream one dataset file to local disk, evicting its page cache as it goes.
+
+    huggingface_hub's client left gigabytes of dirty page cache charged to the 2 GiB pod
+    and the 1M-row arms were OOM-killed during download; this writer fsyncs and drops the
+    cache every ``evict_every`` bytes and resumes with an HTTP Range request on retry.
+    """
+    import time
+    import urllib.request
+
+    from huggingface_hub import hf_hub_url
+
+    url = hf_hub_url(REPO, repo_file, repo_type="dataset", revision=REVISION)
+    dst = os.path.join(cache_dir, repo_file.replace("/", "__"))
+    os.makedirs(cache_dir, exist_ok=True)
+    if os.path.exists(dst):
+        return dst
+    part = dst + ".part"
+    for attempt in range(8):
+        have = os.path.getsize(part) if os.path.exists(part) else 0
+        req = urllib.request.Request(url, headers={"User-Agent": "tqp-consumer-basis"})
+        if have:
+            req.add_header("Range", f"bytes={have}-")
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r, open(part, "ab") as f:
+                since = 0
+                while block := r.read(chunk):
+                    f.write(block)
+                    since += len(block)
+                    if since >= evict_every:
+                        f.flush()
+                        _drop_cache(part)
+                        since = 0
+            _drop_cache(part)
+            os.replace(part, dst)
+            return dst
+        except Exception as e:  # noqa: BLE001
+            wait = min(300, 10 * 2**attempt)
+            print(f"retry {attempt + 1} {repo_file}: {e!r}; {wait}s", flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f"download failed: {repo_file}")
+
+
 def _extract(path, rows, out_path):
     import pyarrow.parquet as pq
 
@@ -83,8 +126,6 @@ def payload_sha(path):
 
 
 def stage(arm, root):
-    from huggingface_hub import hf_hub_download
-
     out = os.path.join(root, arm)
     os.makedirs(out, exist_ok=True)
     if os.path.exists(os.path.join(out, "DONE")):
@@ -92,9 +133,8 @@ def stage(arm, root):
     corpus_file, corpus_rows, (fit_file, fit_rows), (eval_file, eval_rows), _ = ARMS[
         arm
     ]
-    local = {}
-    for f in {corpus_file, fit_file, eval_file}:
-        local[f] = hf_hub_download(REPO, f, repo_type="dataset", revision=REVISION)
+    cache = os.environ.get("CB_DOWNLOAD_DIR", "/tmp/cbdl")
+    local = {f: _download(f, cache) for f in sorted({corpus_file, fit_file, eval_file})}
     for name, (f, rows) in (
         ("corpus", (corpus_file, corpus_rows)),
         ("fit", (fit_file, fit_rows)),
