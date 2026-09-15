@@ -187,12 +187,22 @@ class ADCIndex:
         k: int = 10,
         rerank: int = 0,
         originals: np.ndarray | None = None,
+        prune: tuple[float, float] | None = None,
     ):
         """Return ``(indices, scores)`` for the top-``k`` matches per query.
 
         If ``rerank > 0`` and ``originals`` (the fp32 corpus) is given, the top
         ``k * rerank`` ADC candidates are rescored by exact inner product and
         the best ``k`` returned (indices only).
+
+        ``prune=(prefix_fraction, z)`` (experimental) uses the compiled two-pass
+        scan: it sums the first ``prefix_fraction`` of the dims for every vector,
+        extrapolates the rest from that prefix, and finishes only vectors whose
+        upper bound can reach the top-k. Returned scores are exact; a true top-k
+        vector can be pruned with a probability that shrinks as ``z`` grows. It
+        applies to the cosine metric with the kernel compiled and codes <= 4
+        bits; otherwise the unpruned path runs. The per-query survivor counts of
+        the last pruned search are kept in ``last_survivors``.
         """
         if self._codes is None:
             raise RuntimeError("index is empty; call add() first")
@@ -205,6 +215,26 @@ class ADCIndex:
         # numpy path too.
         if self._metric == "l2" or len(self._cent) > 16:
             idx, sc = self._search_numpy(q_rot, qbias, kk)
+        elif (
+            prune is not None
+            and self._kernel is not None
+            and hasattr(self._kernel, "search_pruned")
+            and self._codes.shape[1] >= 2
+        ):
+            d = self._codes.shape[1]
+            m = min(d - 1, max(1, round(prune[0] * d)))
+            idx, sc, self.last_survivors = self._kernel.search_pruned(
+                self._codes,
+                q_rot,
+                self._cent,
+                self._cnorm,
+                self._vrnorm,
+                qbias,
+                self.code_frequencies(),
+                kk,
+                m,
+                float(prune[1]),
+            )
         elif self._kernel is not None:
             idx, sc = self._kernel.search(
                 self._codes,
@@ -221,6 +251,19 @@ class ADCIndex:
         if rerank and originals is not None:
             return self._rerank(idx, queries, originals, k)
         return idx[:, :k], sc[:, :k]
+
+    def code_frequencies(self) -> np.ndarray:
+        """(d', S) float32: how often each code occurs in each dim of the index."""
+        n_codes = len(self._cent)
+        key = (self.size, n_codes)
+        if getattr(self, "_freq_key", None) != key:
+            codes = np.asarray(self._codes)
+            freq = np.empty((codes.shape[1], n_codes), np.float32)
+            for j in range(codes.shape[1]):
+                freq[j] = np.bincount(codes[:, j], minlength=n_codes)[:n_codes]
+            self._freq = freq / max(len(codes), 1)
+            self._freq_key = key
+        return self._freq
 
     def _search_numpy(self, q_rot, qbias, kk):
         cc = self._cent[np.asarray(self._codes)]  # (N, d')

@@ -115,3 +115,77 @@ def test_maximal_sums_do_not_wrap(d):
     assert sorted(idx[0].tolist()) == sorted(best.tolist())
     # score = scale * 255d + bias = (2/255) * 255d - d = d; a wrapped sum changes it
     np.testing.assert_allclose(sc[0], d, rtol=1e-4)
+
+
+# --------------------------------------------------------------------------- #
+# Two-pass pruned scan (experimental, docs/PREREG_pruned_scan.md)             #
+# --------------------------------------------------------------------------- #
+
+
+def _structured_index(n, dim, out_dim, bits, seed=0):
+    """Low-rank data with near-duplicate neighbours, so pruning has work to do."""
+    rng = np.random.default_rng(seed)
+    basis = rng.standard_normal((32, dim)).astype(np.float32)
+    x = rng.standard_normal((n, 32)).astype(np.float32) @ basis
+    x += 0.3 * rng.standard_normal((n, dim)).astype(np.float32)
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+    pca = PCAMatryoshka(input_dim=dim, output_dim=out_dim)
+    pca.fit(x[: min(n, 4000)])
+    ix = ADCIndex(pca.with_quantizer(bits=bits, seed=seed)).add(x)
+    q = x[:25] + 0.02 * rng.standard_normal((25, dim)).astype(np.float32)
+    return ix, q
+
+
+def _kernel_args(ix, q):
+    q_rot, qbias = ix._query_terms(q)
+    return (ix._codes, q_rot, ix._cent, ix._cnorm, ix._vrnorm, qbias)
+
+
+@pytest.mark.parametrize("out_dim,bits", [(64, 4), (300, 2), (1024, 3)])
+def test_pruned_without_pruning_equals_unpruned(out_dim, bits):
+    ix, q = _structured_index(3000 + 11, max(out_dim, 64), out_dim, bits)
+    args = _kernel_args(ix, q)
+    ia, sa = kernel.search(*args, 20, True)
+    ib, sb, surv = kernel.search_pruned(
+        *args, ix.code_frequencies(), 20, out_dim // 4, 1e9
+    )
+    assert (surv == ix.size).all()
+    np.testing.assert_array_equal(sb, sa)
+    assert all(set(x) == set(y) for x, y in zip(ia, ib))
+
+
+@pytest.mark.parametrize(
+    "out_dim,bits,m", [(128, 4, 32), (512, 2, 128), (1024, 4, 512)]
+)
+def test_pruned_scores_are_exact_and_recall_holds(out_dim, bits, m):
+    ix, q = _structured_index(4000, max(out_dim, 64), out_dim, bits, seed=2)
+    k = 10
+    args = _kernel_args(ix, q)
+    all_ids, all_sc = kernel.search(*args, ix.size, True)
+    ref = [dict(zip(all_ids[i].tolist(), all_sc[i].tolist())) for i in range(len(q))]
+    ib, sb, surv = kernel.search_pruned(*args, ix.code_frequencies(), k, m, 3.0)
+    for i in range(len(q)):  # each returned score equals the unpruned score of that id
+        for n, s in zip(ib[i], sb[i]):
+            assert ref[i][int(n)] == pytest.approx(float(s), rel=1e-6, abs=1e-7)
+    recall = np.mean([len(set(ib[i]) & set(all_ids[i, :k])) / k for i in range(len(q))])
+    assert recall >= 0.95
+    assert surv.mean() < ix.size  # something was pruned
+
+
+def test_pruned_k_larger_than_corpus_pads():
+    ix, q = _structured_index(40, 64, 32, 4)
+    ib, sb, surv = kernel.search_pruned(
+        *_kernel_args(ix, q), ix.code_frequencies(), 50, 8, 3.0
+    )
+    assert (ib[:, :40] >= 0).all() and (ib[:, 40:] == -1).all()
+    assert (
+        surv == 40
+    ).all()  # no threshold exists while fewer than k lower bounds are known
+
+
+def test_index_search_prune_option_matches_default():
+    ix, q = _structured_index(2000, 128, 96, 4, seed=4)
+    ids_default, _ = ix.search(q, k=10)
+    ids_pruned, _ = ix.search(q, k=10, prune=(0.25, 1e9))
+    assert all(set(x) == set(y) for x, y in zip(ids_default, ids_pruned))
+    assert ix.last_survivors.shape == (len(q),)
