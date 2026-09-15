@@ -76,9 +76,12 @@ def stage_ann(root: str) -> None:
             continue
 
         def get(name=name, dst=dst):
-            with urllib.request.urlopen(
-                f"http://ann-benchmarks.com/{name}.hdf5", timeout=120
-            ) as r:
+            # the site answers 403 to urllib's default User-Agent
+            req = urllib.request.Request(
+                f"http://ann-benchmarks.com/{name}.hdf5",
+                headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) tqp-rbq-stage"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as r:
                 with open(dst + ".tmp", "wb") as f:
                     while chunk := r.read(8 << 20):
                         f.write(chunk)
