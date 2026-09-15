@@ -85,4 +85,12 @@ are held-out corpus rows, not user queries.
 
 ## 6. Amendment log
 
-(none)
+**Amendment 1 (2026-09-15, disclosed before any result was read).** The first run of
+`bench_pruned_scan.py` on NRP used a pod with 4 CPUs and 4 OpenMP threads, not the 8 registered in
+section 3. It was stopped during the calibration of the first configuration, because the campaign's
+pods were flagged by the cluster for using too little of their requested CPU and memory, so no
+evaluation number from it exists or is used. The rerun keeps the registered procedure; whatever
+thread count the rerun pod gets is reported with the results, and section 5 already limits timings
+to one CPU family per run. The only figure produced before the stop, for the record: wiki1024-1m at
+d' = 1024, 2 bits, k = 10, calibration picked prefix 1/4 and z = 2 at recall 1.000 against v2, 2.0%
+survivors, 1.45x. Calibration numbers do not enter K1 or K2.
