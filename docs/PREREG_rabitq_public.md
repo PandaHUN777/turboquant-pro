@@ -206,3 +206,33 @@ the change. The 2 zero queries have no defined cosine neighbours; they score the
 for every method and are left in, as registered. RaBitQ keeps its native L2 metric; switching
 the IVF variants to inner product was considered and rejected, because it would change the
 registered method on all six arms to repair a defect confined to one.
+
+### Amendment 2 — 2026-09-15, during the main grid: supplementary arm for a tq-pro kernel defect
+
+**Defect.** The compiled AVX2 kernel at the registered commit (`856c4cb`) sums per-dim
+uint8 table lookups in uint16. For out_dim > 257 a sum can exceed 65535 and wrap, and it
+wraps for the highest-scoring vectors. Found while diagnosing search speed, not from a
+comparison result: on 100k real text-embedding-3-large rows (1536-d, 2-bit, full dim)
+recall@10 was 0.848 on the AVX2 path against 0.905 on the exact path; a numpy replay of the
+kernel arithmetic gave 0.885 with the wrap and 0.910 without. Registered tq-pro cells with
+out_dim > 256 therefore understate tq-pro's estimator; cells with out_dim <= 256 cannot wrap.
+
+**What stays.** The registered `tq` arm is not rerun, replaced or rescored. It measures the
+kernel that shipped at `856c4cb`, and the claim verdicts of section 4 are computed on it as
+registered.
+
+**What is added.** A supplementary method `tqfix`: the same pipeline, with the kernel fixed in
+commit `3d96506` (uint16 lanes folded into uint32 every 256 dims; also nibble-packed codes and
+streaming top-k, which change speed, not scores). Kernel source sha256
+`cccf1ca79ac70084e74e8359089c651523bb742797da77443344877e06068a7f`, recorded per cell. It
+runs on every registered tq configuration with out_dim > 256 on the three high-dimensional
+arms (full dim at 2-4 bits; d/2 and, for 1536-d, d/4 at 3-4 bits), 3 seeds: 57 cells
+(`grid.supplementary_cells()`). Before running, the fix was checked against an exact integer
+replay of the kernel arithmetic for out_dim 16 to 1536; a constructed worst case fails on the
+old kernel and passes on the new one.
+
+**Reporting.** `score.py --supplementary` scores a fixed-kernel family: each tq configuration
+replaced by its `tqfix` twin where one exists, else the registered configuration (which could
+not wrap). Its verdicts are reported beside the registered ones under the same rules, labelled
+supplementary, and are not substituted for them in the ledger decision of section 5. If the
+two disagree, both are stated.

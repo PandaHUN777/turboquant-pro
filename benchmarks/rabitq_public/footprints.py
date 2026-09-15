@@ -56,7 +56,7 @@ def model_bytes(cell, threads):
     n, d = ROWS[ds], DIMS[ds]
     total = BASE + _corpus(ds)
     pca_fit = 100_000 * d * 20 + d * d * 8
-    if m == "tq":
+    if m in ("tq", "tqfix"):
         o = cell["out_dim"]
         total += pca_fit + n * (2 * o + 8) + threads * n * 12 + BLOCK * o * 16
     elif m == "rabitq_flat":
@@ -148,7 +148,8 @@ def sizing(cell, factors_path=None, calibrating=False):
     if not factors_path or not os.path.exists(factors_path):
         return None
     with open(factors_path, encoding="utf-8") as fh:
-        f = json.load(fh).get(f"{cell['dataset']}/{cell['method']}")
+        cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+        f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     if f is None:
         return None
     return cpu, est * max(f["factor"], 0.25), "measured-factor"

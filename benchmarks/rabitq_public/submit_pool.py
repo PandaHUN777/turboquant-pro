@@ -37,7 +37,7 @@ sys.path.insert(
 )  # openvector_bench.nrp_pool
 
 from rabitq_public import footprints  # noqa: E402
-from rabitq_public.grid import cells  # noqa: E402
+from rabitq_public.grid import cells, supplementary_cells  # noqa: E402
 
 NS = "ssu-atlas-ai"
 PVC = "tqp-rbq-data"
@@ -214,7 +214,16 @@ def descriptor(item):
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
     else:
         memory = f"{req}Gi"
-    kernel = "python -m turboquant_pro._adc >/dev/null\n" if c["method"] == "tq" else ""
+    kernel = ""
+    if c["method"] == "tq":
+        kernel = "python -m turboquant_pro._adc >/dev/null\n"
+    elif c["method"] == "tqfix":  # Amendment 2: v2 kernel source ships in the code map
+        kernel = (
+            "cp /code/rabitq_public/adc_scan_v2.cpp"
+            " /tmp/tqp/turboquant_pro/_adc/adc_scan.cpp\n"
+            "python -m turboquant_pro._adc >/dev/null\n"
+            'python -c "from turboquant_pro import _adc; assert _adc.is_available()"\n'
+        )
     # no background reporter loop: the cell JSON records its own peak anonymous memory
     s = (
         ENV_PREAMBLE
@@ -245,7 +254,15 @@ def main():
     ap.add_argument(
         "--phase",
         required=True,
-        choices=("setup", "stage", "gt", "calibration", "factors", "cells"),
+        choices=(
+            "setup",
+            "stage",
+            "gt",
+            "calibration",
+            "factors",
+            "cells",
+            "supplementary",
+        ),
     )
     ap.add_argument("--datasets", nargs="*")
     ap.add_argument("--maxpar", type=int, default=8)
@@ -265,7 +282,11 @@ def main():
     elif a.phase in ("setup", "stage", "gt"):
         items = dict(setup=setup_items, stage=stage_items, gt=gt_items)[a.phase]()
     else:
-        items = cell_items(a.datasets, calibration=a.phase == "calibration")
+        items = (
+            [_cell_item(c, False) for c in supplementary_cells()]
+            if a.phase == "supplementary"
+            else cell_items(a.datasets, calibration=a.phase == "calibration")
+        )
         if a.methods:
             items = [it for it in items if it["cell"]["method"] in a.methods]
         if a.skip_unmeasured and a.phase == "cells":

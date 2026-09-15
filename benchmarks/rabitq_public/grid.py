@@ -86,6 +86,26 @@ def cells(datasets=None) -> list[dict]:
     ]
 
 
+def supplementary_cells() -> list[dict]:
+    """Amendment 2: tq-pro with the v2 ADC kernel, on the configurations v1 could wrap.
+
+    Method ``tqfix`` runs the same pipeline as ``tq``; only the compiled kernel differs
+    (turboquant_pro/_adc/adc_scan.cpp at commit 3d96506). The v1 kernel's uint16 sums
+    could wrap only for out_dim > 256, so those are the configurations rerun. Reported
+    beside the registered arm, never substituted for it.
+    """
+    out = []
+    for ds in HIGH_DIM:
+        for c in configs(ds):
+            if c["method"] == "tq" and c["out_dim"] > 256:
+                fixed = dict(c, method="tqfix")
+                for s in SEEDS:
+                    out.append(
+                        dict(dataset=ds, seed=s, cell_id=cell_id(ds, fixed, s), **fixed)
+                    )
+    return out
+
+
 if __name__ == "__main__":
     from collections import Counter
 

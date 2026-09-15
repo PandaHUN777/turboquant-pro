@@ -40,6 +40,7 @@ from .grid import SEEDS
 
 FAMILY = dict(
     tq="TQ",
+    tqfix="TQFIX",
     rabitq_flat="RABITQ",
     rabitq_ivf="RABITQ",
     rabitqlib_ivf="RABITQ",
@@ -143,11 +144,11 @@ def _pair_row(tq, base, family, anchor):
     return row
 
 
-def compare(configs):
+def compare(configs, tq_family="TQ"):
     rows, seen = [], set()
     for fam in ("RABITQ", "OPQ", "PQ"):
         for (ds, key), c in sorted(configs.items()):
-            if c["family"] == "TQ":
+            if c["family"] == tq_family:
                 cands = _window(configs, ds, fam, c["bytes"])
                 if not cands:
                     rows.append(
@@ -163,7 +164,7 @@ def compare(configs):
                     continue
                 tq, base, anchor = c, _best(cands), "tq"
             elif c["family"] == fam:
-                cands = _window(configs, ds, "TQ", c["bytes"])
+                cands = _window(configs, ds, tq_family, c["bytes"])
                 if not cands:
                     rows.append(
                         dict(
@@ -273,14 +274,41 @@ def markdown(configs, rows, claims, incomplete) -> str:
     return "\n".join(out) + "\n"
 
 
+def supplementary_family(configs):
+    """Fixed-kernel tq-pro: each tq config is replaced by its tqfix twin when one exists.
+
+    Registered tq configs with out_dim <= 256 ran a kernel that could not wrap, so they
+    stand for the fixed kernel as they are; configs with a tqfix twin are superseded.
+    """
+    out = {}
+    for (ds, key), c in configs.items():
+        if c["family"] == "TQ":
+            twin = (ds, key.replace("-tq-", "-tqfix-", 1))
+            if twin in configs:
+                continue
+            c = dict(c, family="TQFIX")
+        out[(ds, key)] = c
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", required=True)
     ap.add_argument("--markdown")
     ap.add_argument("--json")
+    ap.add_argument(
+        "--supplementary",
+        action="store_true",
+        help="Amendment 2: score tq-pro with the v2 kernel (tqfix where it exists, "
+        "else the registered tq config, whose kernel could not wrap)",
+    )
     a = ap.parse_args()
     configs, incomplete = load(a.results)
-    rows = compare(configs)
+    tq_family = "TQ"
+    if a.supplementary:
+        configs = supplementary_family(configs)
+        tq_family = "TQFIX"
+    rows = compare(configs, tq_family)
     claims = dict(
         C1_beats_rabitq=claim(rows, "RABITQ", "C1"),
         C2_ties_opq=claim(rows, "OPQ", "C2"),

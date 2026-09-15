@@ -23,10 +23,23 @@ import time
 import numpy as np
 
 from .datasets import Dataset
-from .grid import cells
+from .grid import cells, supplementary_cells
 
 K = 50
 QB = 0  # faiss RaBitQ query bits; 0 = unquantized queries, the most accurate setting
+
+
+def _kernel_source_sha():
+    import hashlib
+
+    from turboquant_pro import _adc
+
+    path = os.path.join(os.path.dirname(_adc.__file__), "adc_scan.cpp")
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
 
 
 def m_tq(ds, c, threads):
@@ -53,7 +66,9 @@ def m_tq(ds, c, threads):
     search = time.perf_counter() - t
     stored = -(-c["out_dim"] * c["bits"] // 8) + 4
     extra = dict(
-        kernel=bool(index.uses_kernel), in_memory_bytes_per_vec=c["out_dim"] + 8
+        kernel=bool(index.uses_kernel),
+        in_memory_bytes_per_vec=c["out_dim"] + 8,
+        kernel_source_sha256=_kernel_source_sha(),
     )
     return np.asarray(ids), stored, build, search, extra
 
@@ -247,6 +262,7 @@ def m_pq(ds, c, threads, opq=False):
 
 METHODS = dict(
     tq=m_tq,
+    tqfix=m_tq,  # same pipeline; the pod compiles the v2 kernel (Amendment 2)
     rabitq_flat=m_rabitq_flat,
     rabitq_ivf=m_rabitq_ivf,
     pca_rabitq_ivf=m_pca_rabitq_ivf,
@@ -415,7 +431,9 @@ def main():
     if a.cell_json:
         cell = json.loads(a.cell_json)
     else:
-        cell = next(c for c in cells() if c["cell_id"] == a.cell_id)
+        cell = next(
+            c for c in cells() + supplementary_cells() if c["cell_id"] == a.cell_id
+        )
     print(run(cell, a.data_root, a.out, a.threads), flush=True)
 
 
