@@ -35,6 +35,16 @@ def normalize(x: np.ndarray) -> np.ndarray:
     return x / np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-30)
 
 
+def normalize_inplace(x: np.ndarray, block: int = 500_000) -> np.ndarray:
+    """Same values as ``normalize`` (per-row norms do not depend on the chunking), without
+    the full-size quotient and x*x temporaries. A 10M x 96 corpus otherwise needs twice its
+    size and was OOM-killed at 6 GiB."""
+    for s in range(0, len(x), block):
+        v = x[s : s + block]
+        v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-30)
+    return x
+
+
 @dataclass(frozen=True)
 class Spec:
     name: str
@@ -74,7 +84,7 @@ class Dataset:
             import h5py
 
             with h5py.File(os.path.join(root, sp.path), "r") as f:
-                self._mem = normalize(f["train"][:])
+                self._mem = normalize_inplace(np.asarray(f["train"][:], np.float32))
                 self.queries = normalize(f["test"][: sp.nq])
                 self.gt = np.asarray(f["neighbors"][: sp.nq, :100], dtype=np.int64)
             self.n, self.dim = self._mem.shape
