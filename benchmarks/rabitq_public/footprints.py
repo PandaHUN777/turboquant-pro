@@ -51,8 +51,10 @@ def _rabitq_code(d, bits):
     return math.ceil(d * bits / 8) + 12
 
 
-def model_bytes(cell, threads):
+def model_bytes(cell, threads, ram_corpus=None):
     ds, m = cell["dataset"], cell["method"]
+    if ram_corpus is None:
+        ram_corpus = ds in RAM_CORPUS_RABITQLIB
     n, d = ROWS[ds], DIMS[ds]
     total = BASE + _corpus(ds)
     pca_fit = 100_000 * d * 20 + d * d * 8
@@ -76,7 +78,7 @@ def model_bytes(cell, threads):
         )
     elif m == "rabitqlib_ivf":
         L = cell["nlist"]
-        if ds in RAM_CORPUS_RABITQLIB:
+        if ram_corpus:
             total += n * d * 4  # corpus held in RAM for the build (see cell.py)
         # corpus copy is memory-mapped (page cache); allow one internal float32 copy of the
         # largest cluster batch plus the codes
@@ -94,7 +96,17 @@ def model_bytes(cell, threads):
 EXEMPT_ARMS = ("glove-100-angular", "nytimes-256-angular")
 # rabitqlib reads its build corpus in random order; memory-mapped over CephFS at 10M x 1024
 # that stalled in disk sleep, so this arm keeps the corpus in RAM.
-RAM_CORPUS_RABITQLIB = ("wiki1024-10m",)
+RAM_CORPUS_RABITQLIB = (
+    "wiki1024-10m",
+    "deep-image-96-angular",
+    "dbpedia-ada002-1m",
+    "dbpedia-3large-1536-1m",
+)
+# Classes whose calibration cell already held the corpus in RAM; the others were calibrated
+# with the memory map, so the in-RAM corpus is added on top of their measured estimate.
+# Deep-image joined on 2026-09-15 after four of its rabitqlib cells, writing 3.6 GiB maps to
+# CephFS at once, sat below the CPU floor and were deleted together.
+RAM_CORPUS_CALIBRATED = ("wiki1024-10m",)
 
 
 def cpu_for(cell):
@@ -152,7 +164,16 @@ def sizing(cell, factors_path=None, calibrating=False):
         f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     if f is None:
         return None
-    return cpu, est * max(f["factor"], 0.25), "measured-factor"
+    factor = max(f["factor"], 0.25)
+    if (
+        cell["method"] == "rabitqlib_ivf"
+        and cell["dataset"] in RAM_CORPUS_RABITQLIB
+        and cell["dataset"] not in RAM_CORPUS_CALIBRATED
+    ):
+        n, d = ROWS[cell["dataset"]], DIMS[cell["dataset"]]
+        base = model_bytes(cell, cpu, ram_corpus=False) / GIB
+        return cpu, base * factor + n * d * 4 / GIB, "measured-factor+ram-corpus"
+    return cpu, est * factor, "measured-factor"
 
 
 def main():

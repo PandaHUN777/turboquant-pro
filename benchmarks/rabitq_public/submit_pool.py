@@ -276,6 +276,12 @@ def main():
     ap.add_argument(
         "--tag", help="pool state name; disjoint pools may run side by side"
     )
+    ap.add_argument(
+        "--wedge-hours",
+        type=float,
+        default=20.0,
+        help="recycle a job only after this long; a 10M-row flat RaBitQ cell takes ~7 h",
+    )
     a = ap.parse_args()
     if a.phase == "factors":
         items = [dict(name="rbq-factors", kind="factors")]
@@ -322,7 +328,7 @@ def main():
         ns=NS,
         maxpar=a.maxpar,
         maxtries=4,
-        wedge_s=6 * 3600,
+        wedge_s=int(a.wedge_hours * 3600),
         pend_s=2700,
     )
     ok = runner.run()
