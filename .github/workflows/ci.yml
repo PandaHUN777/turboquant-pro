@@ -55,6 +55,25 @@ jobs:
         # tests/test_claims_ledger.py: CLAIMS.md and claims.yaml must agree on
         # every claim id and status.
 
+  # The compiled AVX2 ADC kernel (turboquant_pro/_adc). The main matrix never builds
+  # it, so its tests skip there; this job compiles it and checks it against an exact
+  # integer replay of its own arithmetic, including sums past 16 bits (the v1 kernel
+  # wrapped silently for more than 257 dims).
+  adc-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and build the kernel
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest pybind11
+          python -m turboquant_pro._adc
+      - name: Kernel tests
+        run: pytest -q tests/test_adc_kernel.py
+
   # Python 3.9 lane. pyproject advertises >=3.9, and a 2026-09-03 probe showed
   # the library passes there (996/999; the 3 failures were one zip(strict=)
   # call, since fixed) — but the pinned lint tooling (black 26.x, ty) needs

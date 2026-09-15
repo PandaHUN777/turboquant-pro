@@ -201,7 +201,9 @@ class ADCIndex:
         # The compiled kernel implements the cosine score only; l2 takes the
         # numpy path, which is exact (and identical in ranking to the blocked
         # and IVF paths, which share score_block).
-        if self._metric == "l2":
+        # The kernel's pshufb tables hold 16 entries, so codes above 4 bits take the
+        # numpy path too.
+        if self._metric == "l2" or len(self._cent) > 16:
             idx, sc = self._search_numpy(q_rot, qbias, kk)
         elif self._kernel is not None:
             idx, sc = self._kernel.search(
