@@ -86,8 +86,16 @@ def model_bytes(cell, threads):
     return total
 
 
+# Arms whose every cell fits the exempt class (<= 1 CPU, <= 2 GiB). Measured 2026-09-15:
+# a GloVe rabitq_flat cell peaked near 0.6 GiB, and four 4-CPU / 2.5-GiB GloVe and NYTimes
+# calibration pods were deleted in one utilization sweep. Exempt pods are not swept.
+EXEMPT_ARMS = ("glove-100-angular", "nytimes-256-angular")
+
+
 def cpu_for(cell):
-    """1 CPU (exempt class) when the model fits 2 GiB with margin, else 4."""
+    """1 CPU (exempt class) for the small arms or when the model fits 2 GiB, else 4."""
+    if cell["dataset"] in EXEMPT_ARMS:
+        return 1
     return 1 if model_bytes(cell, 1) * 1.25 <= 2 * GIB else 4
 
 

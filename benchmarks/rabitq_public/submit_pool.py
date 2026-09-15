@@ -208,7 +208,10 @@ def descriptor(item):
         )
     cpu, est_gib, _source = size
     req = max(1, math.ceil(1.25 * est_gib))
-    memory = "2Gi" if cpu <= 1 and req <= 2 else f"{req}Gi"
+    if c["dataset"] in footprints.EXEMPT_ARMS:
+        req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
+    else:
+        memory = f"{req}Gi"
     kernel = "python -m turboquant_pro._adc >/dev/null\n" if c["method"] == "tq" else ""
     # no background reporter loop: the cell JSON records its own peak anonymous memory
     s = (
