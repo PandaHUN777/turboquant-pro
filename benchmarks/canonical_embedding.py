@@ -11,8 +11,13 @@ Methods (all at a matched ~out_dim*bits byte budget where applicable):
 
 Every ANN method is measured twice: single-stage, and +rerank with the SAME
 oversample factor (candidates = 10 * oversample), reranked by exact fp32 cosine
-on the retained originals. bytes/vector is computed ANALYTICALLY (out_dim*bits/8)
-to keep this harness self-contained and library-agnostic. (Note: the library's
+on the retained originals. bytes/vector is the STORED size per vector, per-vector
+scalars included: faiss's own ``code_size`` for PQ/OPQ/RaBitQ (RaBitQ's code carries
+its per-vector correction factors), and ``ceil(out_dim*bits/8) + 4`` for the tq-pro
+rows (bit-packed codes plus the fp32 norm). Before 2026-09-14 the RaBitQ row counted
+``dim/8`` and the tq-pro rows ``out_dim*bits/8``, which left out those scalars on
+both sides. ``rabitq_bits`` runs faiss's multi-bit RaBitQ so it can be compared at
+matched bytes rather than only at 1 bit/dim. (Note: the library's
 PCAMatryoshkaPipeline.estimate_storage() was dimension-agnostic before v1.4.1
 and now tracks the real config; we still compute analytically here.)
 
@@ -96,6 +101,11 @@ def _rerank(cand: np.ndarray, Q: np.ndarray, C: np.ndarray, k: int = 10) -> np.n
     return rr
 
 
+def _tq_bytes(out_dim: int, bits: int) -> int:
+    """Stored bytes per tq-pro vector: bit-packed codes plus the fp32 norm."""
+    return -(-out_dim * bits // 8) + 4
+
+
 def _divisor_m(target_m: int, dim: int) -> int:
     m = min(max(1, target_m), dim)
     while dim % m != 0:
@@ -117,6 +127,8 @@ def run_canonical(
     train_cap: int = 200_000,
     n_boot: int = 1000,
     boot_seed: int = 0,
+    rabitq_bits: Sequence[int] = (1,),
+    rabitq_qb: int | None = None,
 ) -> list[dict]:
     """Run the canonical method ladder. C/Q assumed L2-normalized. gt = top-k ids.
 
@@ -129,6 +141,10 @@ def run_canonical(
     `recall_at_10_ci` / `recall_at_10_rerank_ci` strings. Overlapping intervals
     between two methods mean the recall gap is within noise — read the table that
     way, don't rank on differences smaller than the CIs.
+
+    ``rabitq_bits`` lists the faiss RaBitQ bit widths to run (faiss >= 1.13 accepts
+    ``RaBitQ{b}``); ``rabitq_qb`` overrides faiss's query-quantization bits (None
+    keeps the faiss default).
     """
     import faiss
 
@@ -277,32 +293,39 @@ def run_canonical(
         except Exception as e:  # noqa: BLE001
             print(f"  IVFPQ failed: {e}", flush=True)
 
-    # -- RaBitQ (2024 SOTA, ~1 bit/dim) -------------------------------------
+    # -- RaBitQ (2024 SOTA), flat, at each requested bit width --------------
     if "rabitq" in M:
-        try:
-            t = time.perf_counter()
-            index = faiss.index_factory(dim, "RaBitQ", faiss.METRIC_INNER_PRODUCT)
-            index.train(train)
-            index.add(C)
-            bt = time.perf_counter() - t
-            _, nn = index.search(Q, 100)
-            _, cand = index.search(Q, kcand)
-            rr = _rerank(cand, Q, C)
-            q1 = bench(lambda index=index: index.search(Q, 10))
-            qr = bench(lambda index=index: index.search(Q, kcand))
-            add(
-                "faiss-RaBitQ",
-                dim / 8.0,
-                bt,
-                q1,
-                qr,
-                recall_per_query(gt, nn, 10),
-                recall_per_query(gt, rr, 10),
-                recall(gt, nn, 100),
-                f"1-bit/dim; +rerank x{oversample}",
-            )
-        except Exception as e:  # noqa: BLE001
-            print(f"  RaBitQ unavailable in this faiss build: {e}", flush=True)
+        for nb in rabitq_bits:
+            spec = "RaBitQ" if nb == 1 else f"RaBitQ{nb}"
+            try:
+                t = time.perf_counter()
+                index = faiss.index_factory(dim, spec, faiss.METRIC_INNER_PRODUCT)
+                rq = faiss.downcast_index(index)
+                if rabitq_qb is not None:
+                    rq.qb = rabitq_qb
+                index.train(train)
+                index.add(C)
+                bt = time.perf_counter() - t
+                _, nn = index.search(Q, 100)
+                _, cand = index.search(Q, kcand)
+                rr = _rerank(cand, Q, C)
+                q1 = bench(lambda index=index: index.search(Q, 10))
+                qr = bench(lambda index=index: index.search(Q, kcand))
+                add(
+                    f"faiss-RaBitQ({nb}b)",
+                    rq.code_size,
+                    bt,
+                    q1,
+                    qr,
+                    recall_per_query(gt, nn, 10),
+                    recall_per_query(gt, rr, 10),
+                    recall(gt, nn, 100),
+                    f"{nb}-bit/dim, qb={rq.qb}; +rerank x{oversample}",
+                )
+            except Exception as e:  # noqa: BLE001
+                print(
+                    f"  RaBitQ {nb}b unavailable in this faiss build: {e}", flush=True
+                )
 
     # -- PCA-only (truncation, fp32 kept dims) — isolates dimension reduction
     if "pca" in M:
@@ -350,7 +373,7 @@ def run_canonical(
         qr = bench(lambda: idx.search(Q, kcand))
         add(
             f"TQ-only({dim}d, {bits}b)",
-            dim * bits / 8.0,
+            _tq_bytes(dim, bits),
             bt,
             q1,
             qr,
@@ -384,7 +407,7 @@ def run_canonical(
         qr = bench(lambda: idx.search(Qp, kcand))
         add(
             f"PCA+TQ({out_dim}d, {bits}b)",
-            out_dim * bits / 8.0,
+            _tq_bytes(out_dim, bits),
             bt,
             q1,
             qr,
@@ -407,14 +430,15 @@ def run_canonical(
         qr = bench(lambda: index.search(Q, k=10, rerank=oversample, originals=C))
         add(
             f"ADCIndex({out_dim}d, {bits}b)",
-            out_dim * bits / 8.0,
+            _tq_bytes(out_dim, bits),
             bt,
             q1,
             qr,
             recall_per_query(gt, np.asarray(i1), 10),
             recall_per_query(gt, np.asarray(ir), 10),
             recall(gt, np.asarray(i1), 100),
-            f"compressed-domain ADC; +rerank x{oversample}",
+            f"compressed-domain ADC; +rerank x{oversample}; in memory the index "
+            f"holds unpacked uint8 codes + 2 fp32 ({out_dim + 8} B/vec)",
         )
 
     return rows

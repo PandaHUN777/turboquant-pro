@@ -168,6 +168,7 @@ def build_flagship():
             "CORPUS_CAP = None      # None = full corpus (the headline claim); int = quick subset",
             "OUT_DIM    = 100       # PCA target dim; = full dim disables truncation (see scope note)",
             "BITS       = 3         # TurboQuant bit-width",
+            "RABITQ_BITS = (1, 2, 3, 4)  # faiss RaBitQ bits/dim; several, so one lands near tq-pro's bytes",
             "OVERSAMPLE = 5         # SHARED by every +rerank row (candidates = 10*OVERSAMPLE)",
             "N_BOOT     = 1000      # bootstrap resamples for the recall@10 95% CIs",
             "THREADS    = 8",
@@ -183,7 +184,8 @@ def build_flagship():
         ),
         code(
             "rows = run_canonical(C, Q, gt, out_dim=OUT_DIM, bits=BITS,",
-            "                     oversample=OVERSAMPLE, threads=THREADS, n_boot=N_BOOT)",
+            "                     oversample=OVERSAMPLE, threads=THREADS, n_boot=N_BOOT,",
+            "                     rabitq_bits=RABITQ_BITS)",
         ),
         md(
             "## 6. Canonical table",
