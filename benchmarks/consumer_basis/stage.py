@@ -81,38 +81,55 @@ def _download(repo_file, cache_dir, chunk=8 << 20, evict_every=256 << 20):
 def _extract(path, rows, out_path):
     import pyarrow.parquet as pq
 
+    # Plain buffered writes, not a memory map: pages written through a map stay mapped, so
+    # fadvise cannot evict them, and on CephFS their writeback lagged until the 2 GiB pod was
+    # OOM-killed (pyarrow's own memory stayed near 390 MiB, measured). Here dirty memory is
+    # bounded by fsync + eviction every EVICT_ROWS rows.
+    evict_rows = 50_000
     lo, hi = rows
     pf = pq.ParquetFile(path)
-    dim = None
-    mm, pos, fill = None, 0, 0
-    for batch in pf.iter_batches(batch_size=20_000, columns=["emb"]):
-        n = batch.num_rows
-        if pos + n <= lo:
-            pos += n
-            continue
-        emb = np.stack(batch.column(0).to_numpy(zero_copy_only=False)).astype(
-            np.float32
-        )
-        a, b = max(lo - pos, 0), min(hi - pos, n)
-        if mm is None:
-            dim = emb.shape[1]
-            tmp = out_path + ".tmp.npy"
-            mm = np.lib.format.open_memmap(
-                tmp, mode="w+", dtype=np.float32, shape=(hi - lo, dim)
+    tmp = out_path + ".tmp.npy"
+    f = None
+    pos, fill, since = 0, 0, 0
+    try:
+        for batch in pf.iter_batches(batch_size=20_000, columns=["emb"]):
+            n = batch.num_rows
+            if pos + n <= lo:
+                pos += n
+                continue
+            emb = np.stack(batch.column(0).to_numpy(zero_copy_only=False)).astype(
+                np.float32
             )
-        if b > a:
-            mm[fill : fill + (b - a)] = emb[a:b]
-            fill += b - a
-            if fill % 100_000 < (b - a):
-                _drop_cache(out_path + ".tmp.npy", mm.flush)
-                _drop_cache(path)
-        pos += n
-        if pos >= hi:
-            break
+            a, b = max(lo - pos, 0), min(hi - pos, n)
+            if f is None:
+                f = open(tmp, "wb")
+                header = {
+                    "descr": np.lib.format.dtype_to_descr(np.dtype(np.float32)),
+                    "fortran_order": False,
+                    "shape": (hi - lo, emb.shape[1]),
+                }
+                np.lib.format.write_array_header_1_0(f, header)
+            if b > a:
+                f.write(np.ascontiguousarray(emb[a:b]).tobytes())
+                fill += b - a
+                since += b - a
+                if since >= evict_rows:
+                    f.flush()
+                    _drop_cache(tmp)
+                    _drop_cache(path)
+                    since = 0
+            pos += n
+            if pos >= hi:
+                break
+    finally:
+        if f is not None:
+            f.close()
     assert fill == hi - lo, (out_path, fill, hi - lo)
-    mm.flush()
-    del mm
-    os.replace(out_path + ".tmp.npy", out_path)
+    _drop_cache(tmp)
+    arr = np.load(tmp, mmap_mode="r")
+    assert arr.shape[0] == hi - lo, (tmp, arr.shape)
+    del arr
+    os.replace(tmp, out_path)
 
 
 def payload_sha(path):
