@@ -250,6 +250,15 @@ def main():
     ap.add_argument("--datasets", nargs="*")
     ap.add_argument("--maxpar", type=int, default=8)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--skip-unmeasured",
+        action="store_true",
+        help="cells phase: leave out (instead of vetoing) cells whose class is unmeasured",
+    )
+    ap.add_argument("--methods", nargs="*", help="cells phase: only these methods")
+    ap.add_argument(
+        "--tag", help="pool state name; disjoint pools may run side by side"
+    )
     a = ap.parse_args()
     if a.phase == "factors":
         items = [dict(name="rbq-factors", kind="factors")]
@@ -257,6 +266,14 @@ def main():
         items = dict(setup=setup_items, stage=stage_items, gt=gt_items)[a.phase]()
     else:
         items = cell_items(a.datasets, calibration=a.phase == "calibration")
+        if a.methods:
+            items = [it for it in items if it["cell"]["method"] in a.methods]
+        if a.skip_unmeasured and a.phase == "cells":
+            keep = [
+                it for it in items if footprints.sizing(it["cell"], FACTORS) is not None
+            ]
+            print(f"skipping {len(items) - len(keep)} cells whose class is unmeasured")
+            items = keep
     built = {}
     for it in items:
         d, est_cpu, est_mem = descriptor(it)
@@ -275,7 +292,7 @@ def main():
             return client.submit(built[item["name"]])
 
     os.makedirs(STATE_DIR, exist_ok=True)
-    tag = a.phase + ("-" + "-".join(a.datasets) if a.datasets else "")
+    tag = a.tag or a.phase + ("-" + "-".join(a.datasets) if a.datasets else "")
     runner = PoolRunner(
         items,
         job_name=lambda it: it["name"],
