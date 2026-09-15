@@ -123,17 +123,19 @@ def factors(results_dir):
     return out
 
 
-def sizing(cell, results_dir=None, calibrating=False):
-    """(cpu, estimated peak GiB, source) or None when the class is unmeasured."""
+def sizing(cell, factors_path=None, calibrating=False):
+    """(cpu, estimated peak GiB, source) or None when the class is unmeasured.
+
+    ``factors_path`` is the JSON the driver writes from the ``--emit-factors`` job log.
+    """
     cpu = cpu_for(cell)
     est = model_bytes(cell, cpu) / GIB
     if calibrating:
         return cpu, est, "model"
-    f = (
-        factors(results_dir).get(f"{cell['dataset']}/{cell['method']}")
-        if results_dir
-        else None
-    )
+    if not factors_path or not os.path.exists(factors_path):
+        return None
+    with open(factors_path, encoding="utf-8") as fh:
+        f = json.load(fh).get(f"{cell['dataset']}/{cell['method']}")
     if f is None:
         return None
     return cpu, est * max(f["factor"], 0.25), "measured-factor"
@@ -142,7 +144,11 @@ def sizing(cell, results_dir=None, calibrating=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results")
+    ap.add_argument("--emit-factors", action="store_true", help="one log line")
     a = ap.parse_args()
+    if a.emit_factors:
+        print("FACTORS_JSON " + json.dumps(factors(a.results)), flush=True)
+        return
     for c in sorted(calibration_cells(), key=lambda c: (c["dataset"], c["method"])):
         cpu = cpu_for(c)
         print(

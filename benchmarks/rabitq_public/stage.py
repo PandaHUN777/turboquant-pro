@@ -183,6 +183,35 @@ def stage_hf(root: str, name: str) -> None:
     print(f"{name} DONE", flush=True)
 
 
+def file_sha(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while b := f.read(64 << 20):
+            h.update(b)
+    return h.hexdigest()
+
+
+def verify(root: str, only: str | None) -> None:
+    """Compare staged data with the registered identities; exit non-zero on any mismatch."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "DATA_MANIFEST.json"), encoding="utf-8") as f:
+        manifest = json.load(f)["files"]
+    got = {}
+    for name in HF:
+        if only in (None, name):
+            with open(os.path.join(root, name, "hashes.json"), encoding="utf-8") as f:
+                got.update(json.load(f))
+    if only in (None, "ann"):
+        for n in ANN:
+            got[f"ann/{n}.hdf5"] = file_sha(os.path.join(root, "ann", f"{n}.hdf5"))
+    bad = [k for k, v in got.items() if manifest[k]["sha256"] != v]
+    with open(os.path.join(root, f"VERIFY-{only or 'all'}.json"), "w") as f:
+        json.dump(dict(checked=sorted(got), mismatched=bad), f, indent=1)
+    if bad:
+        raise SystemExit("DATA MISMATCH against DATA_MANIFEST.json: " + ", ".join(bad))
+    print(f"VERIFIED {len(got)} files against DATA_MANIFEST.json", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-root", required=True)
@@ -193,6 +222,7 @@ def main():
     for name in HF:
         if a.only in (None, name):
             stage_hf(a.data_root, name)
+    verify(a.data_root, a.only)
     print("STAGE_DONE", flush=True)
 
 

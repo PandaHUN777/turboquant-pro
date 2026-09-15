@@ -47,9 +47,7 @@ BATCH = "tqp-rbq-public"
 ZONE = {"topology.kubernetes.io/zone": "ucsd-suncave"}
 TQP_COMMIT = "856c4cb"
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
-RESULTS_MIRROR = (
-    "/archive/ahb-sjsu/tqp_rabitq_public/results"  # synced copy of /data/results
-)
+FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factors log
 
 ENV_PREAMBLE = """set -euo pipefail
 export PYTHONUNBUFFERED=1 PIP_ROOT_USER_ACTION=ignore HF_HOME=/tmp/hf
@@ -183,6 +181,11 @@ def descriptor(item):
             + f"python -m rabitq_public.gt --dataset {item['dataset']} --data-root /data\n"
         )
         return _descriptor(item["name"], s, 1, "2Gi", "4Gi", "gt"), 1.0, 1.5
+    if k == "factors":
+        s = ENV_PREAMBLE + (
+            "python -m rabitq_public.footprints --emit-factors --results /data/results\n"
+        )
+        return _descriptor(item["name"], s, 1, "1Gi", "4Gi", "factors"), 0.5, 0.5
     if k == "check":
         big = item["dataset"].startswith("deep")
         s = (
@@ -196,7 +199,7 @@ def descriptor(item):
             (4.6 if big else 1.2),
         )
     c = item["cell"]
-    size = footprints.sizing(c, RESULTS_MIRROR, calibrating=item["calibrating"])
+    size = footprints.sizing(c, FACTORS, calibrating=item["calibrating"])
     if size is None:
         raise SystemExit(
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): its class has no measured calibration cell yet"
@@ -231,13 +234,15 @@ def main():
     ap.add_argument(
         "--phase",
         required=True,
-        choices=("setup", "stage", "gt", "calibration", "cells"),
+        choices=("setup", "stage", "gt", "calibration", "factors", "cells"),
     )
     ap.add_argument("--datasets", nargs="*")
     ap.add_argument("--maxpar", type=int, default=8)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    if a.phase in ("setup", "stage", "gt"):
+    if a.phase == "factors":
+        items = [dict(name="rbq-factors", kind="factors")]
+    elif a.phase in ("setup", "stage", "gt"):
         items = dict(setup=setup_items, stage=stage_items, gt=gt_items)[a.phase]()
     else:
         items = cell_items(a.datasets, calibration=a.phase == "calibration")
@@ -272,6 +277,19 @@ def main():
         pend_s=2700,
     )
     ok = runner.run()
+    if a.phase == "factors" and ok:
+        import subprocess
+
+        log = subprocess.run(
+            ["kubectl", "-n", NS, "logs", "job/rbq-factors"],
+            capture_output=True,
+            text=True,
+        ).stdout
+        line = next(ln for ln in log.splitlines() if ln.startswith("FACTORS_JSON "))
+        with open(FACTORS, "w", encoding="utf-8") as f:
+            f.write(line[len("FACTORS_JSON ") :])
+        subprocess.run(["kubectl", "-n", NS, "delete", "job", "rbq-factors"])
+        print("factors written:", FACTORS, flush=True)
     print("PHASE_OK" if ok else "PHASE_PARKED", flush=True)
 
 
