@@ -178,4 +178,31 @@ the methods differ.
 
 ## 8. Amendment log
 
-(none)
+### Amendment 1 — 2026-09-15, during the calibration wave: zero rows under the L2 metric
+
+**Defect.** `rabitq_ivf`, `rabitqlib_ivf` and `pca_rabitq_ivf` search under L2 on
+normalized vectors, which ranks like cosine only when every row has unit norm. An all-zero
+row stays at the origin after normalization, at distance 1 from every query, and outranks
+any unit vector whose cosine with the query is below 0.5.
+
+**How it surfaced, stated because it was a result.** On NYTimes both IVF RaBitQ calibration
+cells (faiss and rabitqlib, 5 bits) returned +rerank x5 recall@10 of about 0.41 while every
+other arm was near 1.0. A local check on the same data found an exact `IVFFlat` scan under L2,
+with no quantization at all, at 0.432, so the cause is the metric and the data, not RaBitQ.
+
+**Scope.** Zero rows counted on the staged data: NYTimes 239 corpus rows (and 2 zero
+queries); GloVe-100, deep-image-96, wiki1024-10m and both DBpedia arms 0.
+
+**Change.** For the three L2-metric methods only, all-zero corpus and training rows are moved
+to (4, 0, ..., 0) before indexing (`cell.far_zero_rows`); at distance >= 3 they are never
+retrieved ahead of a unit vector (distance <= 2). Rerank and every cosine method use the
+original rows. Checked locally on NYTimes: exact `IVFFlat` under L2 rises from 0.432 to
+0.989, the level at which the provided neighbours agree with exact cosine top-10 (0.991).
+
+**Consequences.** On the five arms without zero rows the change is a no-op, so completed
+cells there stand. The two completed NYTimes L2 calibration cells are moved to
+`results_superseded/` on the volume, kept, and rerun; every other NYTimes L2 cell runs with
+the change. The 2 zero queries have no defined cosine neighbours; they score the same way
+for every method and are left in, as registered. RaBitQ keeps its native L2 metric; switching
+the IVF variants to inner product was considered and rejected, because it would change the
+registered method on all six arms to repair a defect confined to one.

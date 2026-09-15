@@ -87,6 +87,28 @@ def m_rabitq_flat(ds, c, threads):
     return ids, int(rq.code_size), build, search, dict(qb=int(rq.qb), metric="ip")
 
 
+FAR = 4.0
+
+
+def far_zero_rows(x: np.ndarray) -> np.ndarray:
+    """Move all-zero rows to a point outside the unit sphere, for the L2-metric methods.
+
+    L2 ranks like cosine only for unit vectors. A normalized zero row stays at the origin,
+    distance 1 from every query, and outranks every unit vector with cosine below 0.5: on
+    NYTimes (239 zero rows) an exact IVFFlat scan fell to recall 0.43. At (4, 0, ..., 0) the
+    row is at distance >= 3 from every query, farther than any unit vector (<= 2), so it is
+    never retrieved ahead of a real neighbour. Cosine methods and rerank use the original
+    rows. Registered as Amendment 1 of docs/PREREG_rabitq_public.md.
+    """
+    zero = ~np.any(x, axis=1)
+    if not zero.any():
+        return x
+    x = np.array(x, dtype=np.float32, copy=True)
+    x[zero] = 0.0
+    x[zero, 0] = FAR
+    return x
+
+
 def _ivf_rabitq(faiss, x_train, blocks, queries, dim, c):
     index = faiss.index_factory(
         dim, f"IVF{c['nlist']},{_rabitq_spec(c['bits'])}", faiss.METRIC_L2
@@ -112,9 +134,9 @@ def _ivf_rabitq(faiss, x_train, blocks, queries, dim, c):
 def m_rabitq_ivf(ds, c, threads):
     faiss = _faiss(threads)
     t = time.perf_counter()
-    train = ds.train_sample(c["seed"], 40 * c["nlist"])
+    train = far_zero_rows(ds.train_sample(c["seed"], 40 * c["nlist"]))
     ids, stored, search, extra = _ivf_rabitq(
-        faiss, train, (b for _, b in ds.blocks()), ds.queries, ds.dim, c
+        faiss, train, (far_zero_rows(b) for _, b in ds.blocks()), ds.queries, ds.dim, c
     )
     build = time.perf_counter() - t - search
     return ids, stored, build, search, extra
@@ -131,11 +153,11 @@ def m_pca_rabitq_ivf(ds, c, threads):
     def proj(x):
         return np.ascontiguousarray(pca.transform(x), dtype=np.float32)
 
-    train = proj(ds.train_sample(c["seed"], 40 * c["nlist"]))
+    train = proj(far_zero_rows(ds.train_sample(c["seed"], 40 * c["nlist"])))
     ids, stored, search, extra = _ivf_rabitq(
         faiss,
         train,
-        (proj(b) for _, b in ds.blocks()),
+        (proj(far_zero_rows(b)) for _, b in ds.blocks()),
         proj(ds.queries),
         c["out_dim"],
         c,
@@ -150,7 +172,7 @@ def m_rabitqlib_ivf(ds, c, threads):
     faiss = _faiss(threads)
     t = time.perf_counter()
     km = faiss.Kmeans(ds.dim, c["nlist"], niter=20, seed=c["seed"])
-    km.train(ds.train_sample(c["seed"], 40 * c["nlist"]))
+    km.train(far_zero_rows(ds.train_sample(c["seed"], 40 * c["nlist"])))
     quant = faiss.IndexFlatL2(ds.dim)
     quant.add(km.centroids)
     # rabitqlib.build takes the whole float32 corpus. By default that copy is a memory map on
@@ -170,6 +192,7 @@ def m_rabitqlib_ivf(ds, c, threads):
     cid = np.empty(ds.n, np.uint32)
     try:
         for s, blk in ds.blocks():
+            blk = far_zero_rows(blk)
             data[s : s + len(blk)] = blk
             cid[s : s + len(blk)] = quant.search(blk, 1)[1][:, 0]
         if spath:
