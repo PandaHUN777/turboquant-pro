@@ -129,7 +129,12 @@ def calibration_cells():
 
 
 def factors(results_dir):
-    """Per-class measured/model ratio from finished calibration cells."""
+    """Per-class measured/model ratio and measured usage, from finished calibration cells.
+
+    ``usage`` is what the cluster averages over a pod's life (cell.py's meter). Without it a
+    request is a guess: on 2026-09-15 the submitter's preflight passed every cell because it
+    was handed a fabricated CPU estimate of 80% of the request, while the pods ran at 1-4%.
+    """
     out = {}
     calib = {c["cell_id"]: c for c in calibration_cells()}
     for p in glob.glob(os.path.join(results_dir, "*.json")):
@@ -139,19 +144,44 @@ def factors(results_dir):
         if cid not in calib or not r.get("peak_anon_gib"):
             continue
         c = calib[cid]
+        u = r.get("usage") or {}
         out[f"{c['dataset']}/{c['method']}"] = dict(
             cell=cid,
             measured_gib=r["peak_anon_gib"],
             model_gib=round(model_bytes(c, r["threads"]) / GIB, 3),
             factor=round(r["peak_anon_gib"] * GIB / model_bytes(c, r["threads"]), 3),
+            usage=(
+                dict(
+                    mean_cpu_cores=u["mean_cpu_cores"],
+                    mean_mem_gib=u["mean_mem_gib"],
+                    peak_mem_gib=u["peak_mem_gib"],
+                    threads=r["threads"],
+                    phases=u.get("phases"),
+                )
+                if u.get("mean_cpu_cores") and u.get("mean_mem_gib")
+                else None
+            ),
         )
     return out
+
+
+def class_usage(cell, factors_path):
+    """The class's measured usage dict, or None when it has never been metered."""
+    if not factors_path or not os.path.exists(factors_path):
+        return None
+    cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+    with open(factors_path, encoding="utf-8") as fh:
+        f = json.load(fh).get(f"{cell['dataset']}/{cls}")
+    return (f or {}).get("usage")
 
 
 def sizing(cell, factors_path=None, calibrating=False):
     """(cpu, estimated peak GiB, source) or None when the class is unmeasured.
 
     ``factors_path`` is the JSON the driver writes from the ``--emit-factors`` job log.
+    The CPU request is capped by the class's measured average, so an I/O-bound class is not
+    handed cores it will never use; submit_pool.py applies the rest of the rules in
+    benchmarks/nrp/sizing.py.
     """
     cpu = cpu_for(cell)
     est = model_bytes(cell, cpu) / GIB
@@ -164,6 +194,9 @@ def sizing(cell, factors_path=None, calibrating=False):
         f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     if f is None:
         return None
+    u = f.get("usage")
+    if u and u.get("mean_cpu_cores"):
+        cpu = max(1, min(cpu, int(u["mean_cpu_cores"] / 0.25)))
     factor = max(f["factor"], 0.25)
     if (
         cell["method"] == "rabitqlib_ivf"

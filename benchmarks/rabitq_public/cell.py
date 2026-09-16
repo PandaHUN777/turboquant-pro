@@ -301,15 +301,48 @@ def _peak_rss_gib():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3)
 
 
+def _cpu_seconds():
+    """CPU seconds this process and its reaped children have burned, or None off Linux.
+
+    Read from /proc/self/stat rather than the cgroup's cpu.stat: inside a pod the two agree,
+    but on a plain host the cgroup root reports the whole machine.
+    """
+    try:
+        with open("/proc/self/stat") as f:
+            f = f.read().rpartition(") ")[2].split()
+        return sum(int(f[i]) for i in (11, 12, 13, 14)) / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, IndexError, AttributeError):
+        return None
+
+
+def _cgroup_mem_bytes():
+    try:
+        with open("/sys/fs/cgroup/memory.current") as f:
+            return int(f.read())
+    except OSError:
+        return None
+
+
 class AnonPeak:
-    """Sample RssAnon from /proc every 0.5 s.
+    """Time-averaged CPU and memory for the pod, a peak, and a per-phase breakdown.
 
     ru_maxrss counts file pages mapped from the memory-mapped corpus, which the kernel can
-    reclaim; anonymous memory is what a pod's memory request has to cover.
+    reclaim; anonymous memory is what a pod's memory request has to cover. But the cluster
+    judges a pod on *averages* over its life, not peaks: on 2026-09-15 eight cells were
+    flagged at 1-4% of 4 requested CPUs while a snapshot showed several near 3.7 cores,
+    because their CephFS-bound phases sink the average. So this also samples the cgroup's
+    memory and CPU counters, and ``mark`` splits the run into phases, which is what tells us
+    *which* phase is idle. benchmarks/nrp/sizing.py turns the result into a request.
     """
 
     def __init__(self):
         self.peak_kib = 0
+        self.mem_sum = self.mem_n = self.mem_peak = 0
+        self.anon_sum = self.anon_n = 0
+        self.t0 = time.perf_counter()
+        self.cpu0 = _cpu_seconds()
+        self.phases = {}
+        self._mark_t, self._mark_cpu = self.t0, self.cpu0
         self._stop = threading.Event()
         self._t = threading.Thread(target=self._run, daemon=True)
 
@@ -319,11 +352,31 @@ class AnonPeak:
                 with open("/proc/self/status") as f:
                     for ln in f:
                         if ln.startswith("RssAnon:"):
-                            self.peak_kib = max(self.peak_kib, int(ln.split()[1]))
+                            kib = int(ln.split()[1])
+                            self.peak_kib = max(self.peak_kib, kib)
+                            self.anon_sum += kib << 10
+                            self.anon_n += 1
                             break
             except OSError:
                 return
+            cur = _cgroup_mem_bytes()
+            if cur is not None:
+                self.mem_sum += cur
+                self.mem_n += 1
+                self.mem_peak = max(self.mem_peak, cur)
             self._stop.wait(0.5)
+
+    def mark(self, phase):
+        """Close a phase: its wall seconds and the CPU cores it averaged."""
+        now, cpu = time.perf_counter(), _cpu_seconds()
+        wall = now - self._mark_t
+        cores = (
+            round((cpu - self._mark_cpu) / wall, 3)
+            if cpu is not None and self._mark_cpu is not None and wall > 0
+            else None
+        )
+        self.phases[phase] = dict(s=round(wall, 1), cpu_cores=cores)
+        self._mark_t, self._mark_cpu = now, cpu
 
     def __enter__(self):
         self._t.start()
@@ -336,6 +389,32 @@ class AnonPeak:
     @property
     def gib(self):
         return round(self.peak_kib / 2**20, 3) if self.peak_kib else None
+
+    def _mean_mem(self):
+        """Mean charged memory, or mean anonymous memory where the cgroup file is absent
+        (as on a plain host): anonymous memory omits the page cache the cluster counts, so
+        the fallback understates the average and can only make a request smaller."""
+        if self.mem_n:
+            return round(self.mem_sum / self.mem_n / 2**30, 3)
+        return round(self.anon_sum / self.anon_n / 2**30, 3) if self.anon_n else None
+
+    def usage(self):
+        """What the cluster would average over this pod: cores, mean and peak GiB."""
+        wall = time.perf_counter() - self.t0
+        cpu = _cpu_seconds()
+        return dict(
+            mean_cpu_cores=(
+                round((cpu - self.cpu0) / wall, 3)
+                if cpu is not None and self.cpu0 is not None and wall > 0
+                else None
+            ),
+            mean_mem_gib=self._mean_mem(),
+            peak_mem_gib=round(max(self.mem_peak, self.peak_kib << 10) / 2**30, 3)
+            or None,
+            peak_anon_gib=self.gib,
+            wall_s=round(wall, 1),
+            phases=self.phases,
+        )
 
 
 def environment() -> dict:
@@ -379,15 +458,18 @@ def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
         ds = Dataset(cell["dataset"], data_root)
         if ds.gt is None:
             raise SystemExit(f"no ground truth for {cell['dataset']}; run gt.py first")
+        anon.mark("load")
         ids, stored, build_s, search_s, extra = METHODS[cell["method"]](
             ds, cell, threads
         )
+        anon.mark("index")
         ids = np.asarray(ids, dtype=np.int64)
         hits = dict(
             hits_single=hits_at_10(ds.gt, ids[:, :10]).tolist(),
             hits_rr2=hits_at_10(ds.gt, rerank(ds, ids, 20)).tolist(),
             hits_rr5=hits_at_10(ds.gt, rerank(ds, ids, 50)).tolist(),
         )
+        anon.mark("rerank")
     rec = dict(
         cell=cell,
         n=ds.n,
@@ -400,6 +482,7 @@ def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
         threads=threads,
         peak_rss_gib=_peak_rss_gib(),
         peak_anon_gib=anon.gib,
+        usage=anon.usage(),
         wall_s=round(time.time() - t0, 1),
         extra=extra,
         env=environment(),

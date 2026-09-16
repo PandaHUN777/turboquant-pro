@@ -13,6 +13,9 @@ Platform rules enforced here as code, not memory (reference_nrp_job_policies.md)
 
 - ``preflight()`` vetoes any descriptor whose measured usage would sit outside 20-200% of
   requested CPU or 20-150% of requested memory; requests <= 1 CPU and <= 2 GiB are exempt.
+  Its CPU estimate is the class's *measured* mean cores (cell.py's meter, carried in
+  factors.json). It used to be 0.8 x the request, a fabricated number that could not fail,
+  and on 2026-09-15 eight cells ran at 1-4% of 4 CPUs with every preflight green.
 - Memory request = 1.25 x the estimated peak anonymous memory (``footprints.py``). The
   ``calibration`` phase runs one registered cell per (arm, method) sized by the model; the
   ``cells`` phase vetoes any cell whose class has no measured calibration result.
@@ -28,6 +31,7 @@ import json
 import math
 import os
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -35,6 +39,8 @@ sys.path.insert(0, "/home/claude/src/nats-bursting/python")
 sys.path.insert(
     0, os.environ.get("OVB_PATH", "/archive/ahb-sjsu/tqp_rabitq_public/ovb")
 )  # openvector_bench.nrp_pool
+
+from nrp import sizing as nrp_sizing  # noqa: E402
 
 from rabitq_public import footprints  # noqa: E402
 from rabitq_public.grid import cells, supplementary_cells  # noqa: E402
@@ -52,6 +58,10 @@ TQP_COMMIT = (
 )
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
 FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factors log
+# benchmarks/nrp/utilization_guard.py touches this every cycle. A calibration cell is the one
+# pod whose usage nobody has measured yet, so it may only go out while the guard is watching.
+GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
+GUARD_MAX_AGE_S = 300
 
 ENV_PREAMBLE = """set -euo pipefail
 export PYTHONUNBUFFERED=1 PIP_ROOT_USER_ACTION=ignore HF_HOME=/tmp/hf
@@ -79,20 +89,28 @@ def mem_gib(q: str) -> float:
     return float(q[:-2]) / 1024 if q.endswith("Mi") else float(q.rstrip("Gi"))
 
 
+def guard_is_running() -> bool:
+    """True when the utilization guard has checked in within the last GUARD_MAX_AGE_S."""
+    try:
+        return time.time() - os.path.getmtime(GUARD_HEARTBEAT) < GUARD_MAX_AGE_S
+    except OSError:
+        return False
+
+
 def preflight(d, est_cpu: float, est_mem_gib: float) -> None:
+    """Veto a descriptor the cluster would flag. The rules live in benchmarks/nrp/sizing.py.
+
+    ``est_cpu`` and ``est_mem_gib`` are what this pod is expected to *average*, so they must
+    come from a measurement; a cell whose class has none never reaches here.
+    """
     cpu = float(d.resources.cpu)
     mem = mem_gib(d.resources.memory)
-    if cpu <= 1 and mem <= 2 and d.resources.gpu == 0:
-        return
-    problems = []
-    if not 0.20 * cpu <= est_cpu <= 2.00 * cpu:
-        problems.append(
-            f"CPU est {est_cpu} vs request {cpu} ({100 * est_cpu / cpu:.0f}%, allowed 20-200%)"
-        )
-    if not 0.20 * mem <= est_mem_gib <= 1.50 * mem:
-        problems.append(
-            f"memory est {est_mem_gib:.2f} GiB vs request {mem} ({100 * est_mem_gib / mem:.0f}%, allowed 20-150%)"
-        )
+    if d.resources.gpu:
+        raise SystemExit(f"PREFLIGHT VETO {d.name}: this campaign requests no GPUs")
+    usage = nrp_sizing.Usage(
+        mean_cpu_cores=est_cpu, mean_mem_gib=est_mem_gib, peak_mem_gib=est_mem_gib
+    )
+    problems = nrp_sizing.check(cpu, mem, usage)
     if not d.resources.ephemeral_storage:
         problems.append("ephemeral-storage not declared")
     if problems:
@@ -209,6 +227,18 @@ def descriptor(item):
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): its class has no measured calibration cell yet"
         )
     cpu, est_gib, _source = size
+    usage = footprints.class_usage(c, FACTORS)
+    if usage is None and not item["calibrating"]:
+        raise SystemExit(
+            f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): its class has never been metered; "
+            "run the calibration phase with the new cell.py first"
+        )
+    if usage is None and not guard_is_running():
+        raise SystemExit(
+            f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): a calibration cell measures a class "
+            "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
+            f"watching. No heartbeat newer than {GUARD_MAX_AGE_S}s at {GUARD_HEARTBEAT}"
+        )
     req = max(1, math.ceil(1.25 * est_gib))
     if c["dataset"] in footprints.EXEMPT_ARMS:
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
@@ -246,7 +276,12 @@ def descriptor(item):
         and c["dataset"] in footprints.RAM_CORPUS_RABITQLIB
     )
     d.env["TQP_RBQ_SCRATCH"] = "ram" if ram else "/data/scratch"
-    return d, 0.8 * cpu, est_gib
+    if usage is None:  # calibration: no measurement exists, the guard is the safety net
+        return d, 0.8 * cpu, est_gib
+    # What the cluster will average over this pod: the class's measured cores, and its
+    # measured mean-to-peak memory ratio applied to this cell's estimated peak.
+    ratio = min(1.0, usage["mean_mem_gib"] / max(usage["peak_mem_gib"], 1e-9))
+    return d, float(usage["mean_cpu_cores"]), est_gib * ratio
 
 
 def main():
