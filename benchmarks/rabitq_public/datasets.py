@@ -27,6 +27,12 @@ import numpy as np
 
 QUERY_SEED = 20260914
 BLOCK = 250_000
+SWEEP_BLOCK = 100_000
+# Sweep the part sequentially once the wanted rows are worth this share of it. The measured
+# rates (~500 rows/s scattered, ~100 MiB/s sequential) put the crossover near 1 row in 400 of
+# a 1024-dim part; 40 keeps the sweep for the large training samples and the scattered read
+# for the small ones, without sitting on the crossover itself.
+SWEEP_RATIO = 40
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
 
 
@@ -117,14 +123,40 @@ class Dataset:
 
     # -- pool access (npy) --------------------------------------------------
     def _gather_pool(self, rows: np.ndarray) -> np.ndarray:
+        """Rows from the memory-mapped parts, by scattered reads or one sequential sweep.
+
+        Measured on the campaign's CephFS volume (io_probe.py, 2026-09-15): scattered rows
+        arrive at 400-700 a second, while a sequential stream runs at ~100 MiB/s. A cell that
+        wants 655,360 training rows out of 10M therefore waits about twenty minutes for the
+        scattered read and about six for a sweep of the whole part, at a few percent of one
+        CPU either way. Below the crossover the scattered read still wins, so this picks the
+        cheaper one; the rows returned are identical.
+        """
         out = np.empty((len(rows), self.dim), np.float32)
         part = np.searchsorted(self._offsets, rows, side="right") - 1
         for p in np.unique(part):
             sel = np.flatnonzero(part == p)
             local = rows[sel] - self._offsets[p]
             order = np.argsort(local)
-            out[sel[order]] = self._parts[p][local[order]]
+            src = self._parts[p]
+            if len(sel) * self.dim * 4 * SWEEP_RATIO >= src.nbytes:
+                self._sweep(src, local[order], out, sel[order])
+            else:
+                out[sel[order]] = src[local[order]]
         return out
+
+    def _sweep(self, src, local_sorted, out, dest):
+        """One pass over a part, copying the wanted rows as they go by."""
+        pos = 0
+        for s in range(0, len(src), SWEEP_BLOCK):
+            e = min(len(src), s + SWEEP_BLOCK)
+            hi = pos + int(np.searchsorted(local_sorted[pos:], e))
+            if hi > pos:
+                blk = np.array(src[s:e], np.float32, copy=True)
+                out[dest[pos:hi]] = blk[local_sorted[pos:hi] - s]
+                pos = hi
+            if pos >= len(local_sorted):
+                break
 
     def _pool_rows(self, pos: np.ndarray) -> np.ndarray:
         return pos if self._keep is None else self._keep[pos]
