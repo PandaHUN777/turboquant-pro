@@ -80,7 +80,7 @@ def probe(name, root, seconds, gather_rows):
             n, dim = d.shape
             row_bytes = dim * 4
             out["sequential"] = sequential(
-                lambda a, b: np.asarray(d[a:b], np.float32),
+                lambda a, b: np.array(d[a:b], np.float32, copy=True),
                 n,
                 row_bytes,
                 seconds,
@@ -106,7 +106,9 @@ def probe(name, root, seconds, gather_rows):
         row_bytes = dim * 4
         first = parts[0]
         out["sequential"] = sequential(
-            lambda a, b: np.asarray(first[a:b], np.float32),
+            # np.asarray on a same-dtype memmap slice returns a view and reads nothing;
+            # copy=True forces the pages in, which is what a cell actually pays.
+            lambda a, b: np.array(first[a:b], np.float32, copy=True),
             len(first),
             row_bytes,
             seconds,
