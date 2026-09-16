@@ -1,6 +1,6 @@
 # Design — the planner: a control plane for lossy representation
 
-**Status: DRAFT 2026-09-15.** Written while three registered experiments run
+**Status: P0 LANDED 2026-09-15** (issue #169), design otherwise DRAFT. Written while three registered experiments run
 (`docs/PREREG_rabitq_public.md`, `docs/PREREG_consumer_basis.md`, `docs/PREREG_pruned_scan.md`).
 Sections marked *pending* change when their results land. Status marks follow
 `POSITIONING_2.0.md`: 🟢 shipped, 🟡 partial, ⚪ designed.
@@ -85,8 +85,11 @@ Checks that change what is legal or likely, run before any candidate is built:
 - all-zero and non-finite rows; norm spread (whether normalization changes rankings);
 - duplicate and near-duplicate rate (ties inflate or deflate recall);
 - spectral concentration: variance retained at d/8, d/4, d/2 (truncatability, as in `RESULTS_glove.md`);
-- query/corpus mismatch `1 − ⟨S, C⟩/(‖S‖‖C‖)` when queries are given (*pending*: whether it predicts
-  the consumer-basis gain, `PREREG_consumer_basis.md`);
+- query/corpus mismatch `1 − ⟨S, C⟩/(‖S‖‖C‖)` when queries are given. It orders the consumer-basis
+  gain across the seven arms measured (`benchmarks/RESULTS_consumer_basis.md`): 0.518 gives the
+  largest gain over corpus PCA, 0.440 a smaller one, 0.0048 an exact tie. Seven arms order a
+  quantity; they do not fit a law, so the planner may use it to *rank* candidates and must still
+  measure the one it picks;
 - hubness and the (A2) tangential fraction (`a2_probe`, `monitor`).
 
 A failed precondition either removes candidates (L2 search with zero rows) or rewrites them (move zero
@@ -121,10 +124,38 @@ Each operator declares **analytic priors**, which are cheap and used only to rul
 - quality on the consumer metric against exact search, per query, on the calibration split, with a
   percentile bootstrap interval (the scorer in `benchmarks/rabitq_public/score.py`);
 - search latency and throughput on the target fingerprint, minimum of repeated timings;
-- build time and peak anonymous memory (the sampler in `benchmarks/rabitq_public/cell.py`).
+- build time, and the time-averaged CPU and memory alongside the peak, per phase (the meter in
+  `benchmarks/rabitq_public/cell.py`).
 
 Measured costs are keyed by the hardware fingerprint and the data scale. A cost measured on a sample
 is extrapolated to N only through a declared scaling law, and the plan labels the extrapolation.
+
+**Storage is an operator too, and its cost model has to be measured like any other.** The campaign of
+2026-09-15/16 supplied the first worked example, and it is the pattern the planner should follow
+rather than a footnote about one volume. Reading the corpus was modelled by a ratio picked from
+judgement, and the judgement was wrong in both directions before measurement settled it: a scattered
+row from the campaign's CephFS volume costs about 76 ms of round trip, a sequential stream runs at
+about 100 MiB/s, and the two rates put the crossover where neither bytes nor row counts alone would
+have put it. Collecting 200k training rows out of 10M is 800 MiB scattered against 38 GiB streamed,
+which argues for the gather until the round trips are counted, at which point the gather is half an
+hour and the stream is six minutes. `benchmarks/rabitq_public/datasets.py` now chooses per request
+from those two measured rates. Three consequences for the planner:
+
+- a read plan is a plan: the same choose-by-measured-cost machinery applies to *how a candidate reads
+  its data*, not only to which quantizer it uses;
+- the rates belong to the fingerprint, not to the code: the same decision flips on a local NVMe;
+- caching is part of the plan. The registered training draw is read once per (dataset, seed) and
+  reused, which turned a per-cell 38 GiB stream into one sequential read, under a declared disk
+  budget so the cache cannot crowd what it accelerates.
+
+**Utilization is a cost the plan can violate.** On a shared cluster, using *less* than requested is a
+policy violation, so a plan that asks for four CPUs and averages 0.16 is not merely wasteful, it is
+non-compliant. `benchmarks/nrp/sizing.py` states the rules the planner's resource block must satisfy
+— a memory request must cover the peak while keeping the mean above the floor, which is possible only
+when the peak is at most five times the mean — and refuses to size a class it has never measured.
+`benchmarks/nrp/utilization_guard.py` enforces them while the work runs and writes back what each job
+actually used, so the next plan is sized from measurement. That pairing, *a rule that refuses and a
+watchdog that measures*, is what R4 should mean in practice.
 
 ### 2.5 Search over plans
 
@@ -180,6 +211,34 @@ A plan is valid for the distribution it was measured on. In service:
   stale and schedules a re-plan; `runtime_policy` supplies the conservative action meanwhile
   (larger rerank depth, a more precise tier).
 
+## 2.9 What P0 shipped
+
+`turboquant_pro/planner.py` and `turboquant_pro/consumers.py`, with
+`tqp plan run | explain | replay | consumers` and the record schema
+`turboquant_pro/schemas/compression_plan.schema.json`. The pieces map onto the
+architecture above as follows.
+
+| stage | where it lives | note |
+|---|---|---|
+| workload spec | `planner.WorkloadSpec`, `Budget`, `QualityFloor`, `Artifact` | the artifact carries a content hash and the context the consumer reads with |
+| preflight | `planner.preflight` | zero rows, non-finite rows, norm spread, spectral concentration; flags travel in the record |
+| candidate space | `planner._enumerate_candidates`, `plugins.capabilities` | from the registry, never a hard-coded list; a codec that cannot be built is recorded as `unsupported`, not dropped |
+| consumer metric | `consumers` (retrieval top-k, attention softmax, read-operator distortion, declared) | its own entry-point group, so a consumer can arrive out of tree |
+| cost | `planner.container_bytes` | every array and buffer reachable in the container, with a breakdown (R6) |
+| search | `_prune_on_priors`, `_halving`, `_frontier` | a candidate is cut only when a survivor's interval lies wholly above its own |
+| verification | `CompressionPlanner._verify` | held-out split, used once, on the conservative end of the bootstrap interval |
+| false clear | `_diagnose` + `false_clear` | attached to **every** evaluation, not just the winner's, and scored on the consumer's own items |
+| record | `CompressionPlan.as_dict`, `explain` | schema-validated; `replay_plan` re-runs verification and reports agreement |
+| runtime | `_fallback_policy` | actions and thresholds come from `runtime_policy.TQPRuntimePolicy`, not a parallel vocabulary |
+
+Not yet done, and named here rather than implied: measured latency and
+throughput evidence (only stored bytes are measured, so `measured_cost` covers
+size and not time), transforms and search operators as candidate stages (the
+candidate is a codec, not yet a pipeline), faiss and rabitqlib adapters, the
+runtime loop of section 2.8, and the P0 exit test of section 5 — the planner has
+not yet been scored for regret against the RaBitQ campaign's exhaustive grid.
+Until that runs, this is a working control plane, not a validated one.
+
 ## 3. What exists, what is missing
 
 | capability | module | status |
@@ -192,9 +251,14 @@ A plan is valid for the distribution it was measured on. In service:
 | Pareto sweeps over PCA dim × bits | `autotune`, `auto_compress` | 🟡 tq-pro operators only, reconstruction and recall, no held-out verification |
 | claims ledger and replay | `claims.yaml`, `tqp replay` | 🟢 for claims; plans not yet |
 | bootstrap scorer, stored-byte accounting, memory sampling | `benchmarks/rabitq_public/` | 🟡 benchmark code, to lift into the library |
-| workload spec, preflight, candidate search, plan record, `tqp plan` | — | ⚪ |
+| workload spec, preflight, candidate search, plan record, `tqp plan run` | `planner` | 🟢 P0 |
+| consumer-metric registry (retrieval, attention, read operator) | `consumers` | 🟢 P0 |
+| measured latency / throughput evidence, hardware fingerprinting | — | ⚪ |
+| measured read-cost model (sequential vs scattered, per fingerprint) | `benchmarks/rabitq_public/datasets.py` | 🟡 in the benchmark, to lift into the library |
+| resource sizing rules and the utilization watchdog | `benchmarks/nrp/` | 🟡 campaign ops, the shape R4 needs |
 | search-operator protocol; faiss / rabitqlib adapters | — | ⚪ |
-| consumer bases, pruned scan as operators | `benchmarks/consumer_basis/`, `search_pruned` | ⚪ *pending registered results* |
+| consumer bases as transforms | `benchmarks/consumer_basis/` | 🟡 registered result in hand: `benchmarks/RESULTS_consumer_basis.md` |
+| pruned scan as a search operator | `search_pruned` | ⚪ *pending registered results* |
 
 The planner absorbs `autotune` and `auto_compress`. Both become frontends that build a workload spec
 and call the planner; neither keeps its own search loop.
