@@ -11,9 +11,11 @@ use openvector-bench's PoolRunner through the nats-bursting controller.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -21,6 +23,8 @@ sys.path.insert(0, "/home/claude/src/nats-bursting/python")
 sys.path.insert(
     0, os.environ.get("OVB_PATH", "/archive/ahb-sjsu/tqp_rabitq_public/ovb")
 )
+
+from nrp import sizing as nrp_sizing  # noqa: E402
 
 from consumer_basis.arms import ARMS  # noqa: E402
 
@@ -30,6 +34,10 @@ CODE_CM = "tqp-cb-code"
 BATCH = "tqp-consumer-basis"
 ZONE = {"topology.kubernetes.io/zone": "ucsd-nrp"}
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
+# Written by benchmarks/nrp/utilization_guard.py: what each Job actually averaged last time.
+OBSERVATIONS = os.path.join(STATE_DIR, "observations.json")
+GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
+GUARD_MAX_AGE_S = 300
 PREAMBLE = """set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HOME=/tmp/hf OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 tar -xf /data/env/env.tar -C /tmp venv
@@ -45,6 +53,29 @@ def rows(arm):
 def est_gib(arm, workers):
     n = rows(arm)
     return (n * 1024 * 4 + n * 512 * 4 + workers * 32 * n * 16) / 2**30 + 1.0
+
+
+def observed(name):
+    """This Job's measured usage from the last time it ran, or None."""
+    try:
+        with open(OBSERVATIONS, encoding="utf-8") as fh:
+            o = json.load(fh).get(name)
+    except (OSError, ValueError):
+        return None
+    if not o or not o.get("mean_cpu_cores") or not o.get("mean_mem_gib"):
+        return None
+    return nrp_sizing.Usage(
+        mean_cpu_cores=o["mean_cpu_cores"],
+        mean_mem_gib=o["mean_mem_gib"],
+        peak_mem_gib=o.get("peak_mem_gib") or o["mean_mem_gib"],
+    )
+
+
+def guard_is_running():
+    try:
+        return time.time() - os.path.getmtime(GUARD_HEARTBEAT) < GUARD_MAX_AGE_S
+    except OSError:
+        return False
 
 
 def descriptor(kind, arm):
@@ -74,8 +105,15 @@ def descriptor(kind, arm):
             f"export CB_WORKERS={cpu}\n"
             f"python -m consumer_basis.run --arm {arm} --root /data/cb --out /data/cb/results\n"
         )
+        seen = observed(f"cb-{kind}-{arm}")
+        if seen is not None:  # size from what this Job actually used last time
+            cpu = nrp_sizing.cpu_request(seen.mean_cpu_cores, cpu)
+            mem = max(mem, math.ceil(seen.peak_mem_gib * nrp_sizing.PEAK_HEADROOM))
+            est = (seen.mean_cpu_cores, seen.mean_mem_gib)
+        else:
+            # Never measured: the model is a guess, so it only goes out under the guard.
+            est = (0.8 * cpu, est_gib(arm, cpu))
         res = Resources(cpu=str(cpu), memory=f"{mem}Gi", ephemeral_storage="4Gi")
-        est = (0.8 * cpu, est_gib(arm, cpu))
     name = f"cb-{kind}-{arm}"
     d = JobDescriptor(
         name=name,
@@ -90,14 +128,26 @@ def descriptor(kind, arm):
     return d, est
 
 
-def preflight(d, est_cpu, est_mem):
+def preflight(d, est_cpu, est_mem, measured):
+    """Veto what the cluster would flag (rules in benchmarks/nrp/sizing.py).
+
+    An unmeasured Job is sized from a model, which is a guess however careful; it may go out
+    only while the utilization guard is watching, so a wrong guess is stopped by us in
+    minutes rather than by the cluster after hours.
+    """
     cpu = float(d.resources.cpu)
     mem = float(d.resources.memory.rstrip("Gi"))
-    if cpu <= 1 and mem <= 2:
-        return
-    if not (0.2 * cpu <= est_cpu <= 2 * cpu and 0.2 * mem <= est_mem <= 1.5 * mem):
+    usage = nrp_sizing.Usage(
+        mean_cpu_cores=est_cpu, mean_mem_gib=est_mem, peak_mem_gib=est_mem
+    )
+    problems = nrp_sizing.check(cpu, mem, usage)
+    if problems:
+        raise SystemExit(f"PREFLIGHT VETO {d.name}: " + "; ".join(problems))
+    exempt = cpu <= 1 and mem <= 2
+    if not measured and not exempt and not guard_is_running():
         raise SystemExit(
-            f"PREFLIGHT VETO {d.name}: cpu {est_cpu}/{cpu}, mem {est_mem:.1f}/{mem}"
+            f"PREFLIGHT VETO {d.name}: never measured, and no utilization guard heartbeat "
+            f"newer than {GUARD_MAX_AGE_S}s at {GUARD_HEARTBEAT}"
         )
 
 
@@ -112,7 +162,7 @@ def main():
     built = {}
     for it in items:
         d, (c, m) = descriptor(a.phase, it["arm"])
-        preflight(d, c, m)
+        preflight(d, c, m, measured=observed(d.name) is not None)
         built[it["name"]] = d
         print(d.name, d.resources.cpu, d.resources.memory, flush=True)
     if a.dry_run:

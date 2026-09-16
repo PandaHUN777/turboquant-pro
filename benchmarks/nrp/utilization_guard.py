@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import subprocess
 import time
 
@@ -123,6 +124,34 @@ def usage(ns):
     return out
 
 
+def record(path, job, mean_cpu, mean_mem, peak_mem, req_cpu, req_mem, samples):
+    """Merge one Job's measured usage into the observations file the submitters read.
+
+    This is the measurement half of the guard: a submitter that has never seen a class run
+    has no honest way to size it, and a fabricated estimate is what let eight pods go out at
+    4 CPUs they never used. Peaks only ever grow, so a later quiet window cannot erase one.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            all_obs = json.load(fh)
+    except (OSError, ValueError):
+        all_obs = {}
+    prev = all_obs.get(job, {})
+    all_obs[job] = dict(
+        mean_cpu_cores=round(mean_cpu, 3),
+        mean_mem_gib=round(mean_mem / 2**30, 3),
+        peak_mem_gib=round(max(peak_mem / 2**30, prev.get("peak_mem_gib", 0)), 3),
+        request_cpu=req_cpu,
+        request_mem_gib=round(req_mem / 2**30, 3),
+        samples=samples,
+        updated=time.strftime("%FT%TZ", time.gmtime()),
+    )
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(all_obs, fh, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--namespace", default="ssu-atlas-ai")
@@ -142,6 +171,11 @@ def main():
         "--apply",
         action="store_true",
         help="delete the offending Job (default: report only)",
+    )
+    ap.add_argument(
+        "--observations",
+        help="JSON file of per-Job measured usage, merged and rewritten each cycle; the "
+        "submitters size the next run from it",
     )
     ap.add_argument(
         "--heartbeat",
@@ -165,6 +199,10 @@ def main():
                 continue
             mc = sum(x[0] for x in h) / len(h)
             mm = sum(x[1] for x in h) / len(h)
+            if a.observations and job:
+                record(
+                    a.observations, job, mc, mm, max(x[1] for x in h), rc, rm, len(h)
+                )
             low = []
             if rc > EXEMPT_CPU and mc < a.floor * rc:
                 low.append(f"cpu {mc:.2f}/{rc:g} cores = {100 * mc / rc:.0f}%")
