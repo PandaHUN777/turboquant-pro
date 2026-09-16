@@ -164,8 +164,10 @@ def main():
     ap.add_argument(
         "--floor",
         type=float,
-        default=0.25,
-        help="fraction of request (cluster's is 0.20)",
+        default=0.20,
+        help="fraction of request to enforce; the cluster's own floor, and deliberately not "
+        "stricter: the margin belongs in sizing (nrp/sizing.py), because stopping a pod the "
+        "cluster would accept throws away good work",
     )
     ap.add_argument(
         "--apply",
