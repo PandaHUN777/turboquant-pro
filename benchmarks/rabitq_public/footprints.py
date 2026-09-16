@@ -128,6 +128,23 @@ def calibration_cells():
     return list(best.values())
 
 
+MIN_METERED_S = (
+    120  # below this the cell did no real work (a finished cell returns at once)
+)
+
+
+def _real_usage(rec):
+    """The cell's usage, or None if it never ran long enough to mean anything.
+
+    A cell whose result already exists returns immediately, and its near-idle seconds would
+    otherwise be recorded as the class's usage and shrink every later request to nothing.
+    """
+    u = rec.get("usage") or {}
+    if not u.get("mean_cpu_cores") or not u.get("mean_mem_gib"):
+        return None
+    return u if (u.get("wall_s") or 0) >= MIN_METERED_S else None
+
+
 def factors(results_dir):
     """Per-class measured/model ratio and measured usage, from the best finished cell.
 
@@ -156,14 +173,14 @@ def factors(results_dir):
         # calibration cells all finished before the meter existed, and preferring them by
         # role left every class unmeasured.
         rank = (
-            bool((r.get("usage") or {}).get("mean_cpu_cores")),
+            bool(_real_usage(r)),
             cid in calib,
             model_bytes(c, r["threads"]),
         )
         if key not in best or rank > best[key][0]:
             best[key] = (rank, r, c)
     for key, (_rank, r, c) in best.items():
-        u = r.get("usage") or {}
+        u = _real_usage(r) or {}
         out[key] = dict(
             cell=c["cell_id"],
             measured_gib=r["peak_anon_gib"],
@@ -175,6 +192,7 @@ def factors(results_dir):
                     mean_mem_gib=u["mean_mem_gib"],
                     peak_mem_gib=u["peak_mem_gib"],
                     threads=r["threads"],
+                    wall_s=u.get("wall_s"),
                     phases=u.get("phases"),
                 )
                 if u.get("mean_cpu_cores") and u.get("mean_mem_gib")

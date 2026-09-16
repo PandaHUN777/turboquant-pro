@@ -168,6 +168,20 @@ def gt_items():
     return items
 
 
+def _one_per_unmeasured_class(items):
+    """One item per class lacking measured usage: the smallest model, which is cheapest to run."""
+    pick = {}
+    for it in items:
+        c = it["cell"]
+        if footprints.class_usage(c, FACTORS) is not None:
+            continue
+        key = (c["dataset"], "tq" if c["method"] == "tqfix" else c["method"])
+        size = footprints.model_bytes(c, 4)
+        if key not in pick or size < pick[key][0]:
+            pick[key] = (size, it)
+    return [it for _size, it in sorted(pick.values(), key=lambda p: p[0])]
+
+
 def _cell_item(c, calibrating):
     name = "rbq-c-" + hashlib.sha1(c["cell_id"].encode()).hexdigest()[:12]
     return dict(name=name, kind="cell", cell=c, calibrating=calibrating)
@@ -309,6 +323,13 @@ def main():
     )
     ap.add_argument("--methods", nargs="*", help="cells phase: only these methods")
     ap.add_argument(
+        "--meter-unmeasured",
+        action="store_true",
+        help="run one cell of every class that has no measured usage yet, cheapest first, "
+        "sized from the model under the utilization guard: the wave that makes the rest of "
+        "the grid sizeable from measurement",
+    )
+    ap.add_argument(
         "--bootstrap",
         action="store_true",
         help="measure a class by running real cells of it under the utilization guard: "
@@ -337,7 +358,10 @@ def main():
         )
         if a.methods:
             items = [it for it in items if it["cell"]["method"] in a.methods]
-        if a.bootstrap:
+        if a.meter_unmeasured:
+            items = _one_per_unmeasured_class(items)
+            print(f"metering wave: {len(items)} classes have no measured usage")
+        if a.bootstrap or a.meter_unmeasured:
             for it in items:
                 it["calibrating"] = True
         if a.skip_unmeasured and a.phase == "cells":
