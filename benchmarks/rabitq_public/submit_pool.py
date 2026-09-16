@@ -309,6 +309,13 @@ def main():
     )
     ap.add_argument("--methods", nargs="*", help="cells phase: only these methods")
     ap.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="measure a class by running real cells of it under the utilization guard: "
+        "sizes from the model, as the calibration phase does, but from cells that have no "
+        "result yet, since a finished cell returns without running and measures nothing",
+    )
+    ap.add_argument(
         "--tag", help="pool state name; disjoint pools may run side by side"
     )
     ap.add_argument(
@@ -330,6 +337,9 @@ def main():
         )
         if a.methods:
             items = [it for it in items if it["cell"]["method"] in a.methods]
+        if a.bootstrap:
+            for it in items:
+                it["calibrating"] = True
         if a.skip_unmeasured and a.phase == "cells":
             keep = [
                 it for it in items if footprints.sizing(it["cell"], FACTORS) is not None
