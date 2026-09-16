@@ -173,6 +173,9 @@ def main():
         help="delete the offending Job (default: report only)",
     )
     ap.add_argument(
+        "--log-dir", help="save a stopped Job's logs here before deleting it"
+    )
+    ap.add_argument(
         "--observations",
         help="JSON file of per-Job measured usage, merged and rewritten each cycle; the "
         "submitters size the next run from it",
@@ -215,6 +218,16 @@ def main():
             stamp = time.strftime("%FT%TZ", time.gmtime())
             print(f"{stamp} UNDER-USED {pod} job={job} " + "; ".join(low), flush=True)
             if a.apply and job:
+                if (
+                    a.log_dir
+                ):  # keep the evidence: deleting the Job deletes its pod's logs
+                    os.makedirs(a.log_dir, exist_ok=True)
+                    logs = sh("logs", f"job/{job}", ns=a.namespace)
+                    with open(
+                        os.path.join(a.log_dir, f"{job}.log"), "w", encoding="utf-8"
+                    ) as fh:
+                        head = f"# stopped {stamp}: " + "; ".join(low)
+                        fh.write(head + os.linesep + logs.stdout)
                 r = sh("delete", "job", job, ns=a.namespace)
                 print(
                     f"{stamp} {'DELETED' if not r.returncode else 'DELETE FAILED'} {job} {r.stderr.strip()}",
