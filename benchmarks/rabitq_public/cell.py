@@ -12,6 +12,7 @@ never recomputed; a partial result is never visible (write to a temp name, then 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import platform
@@ -335,14 +336,16 @@ class AnonPeak:
     *which* phase is idle. benchmarks/nrp/sizing.py turns the result into a request.
     """
 
-    def __init__(self):
+    def __init__(self, report_s=60.0):
+        self.report_s = report_s
+        self.current = None
         self.peak_kib = 0
         self.mem_sum = self.mem_n = self.mem_peak = 0
         self.anon_sum = self.anon_n = 0
         self.t0 = time.perf_counter()
         self.cpu0 = _cpu_seconds()
         self.phases = {}
-        self._mark_t, self._mark_cpu = self.t0, self.cpu0
+        self._said = self.t0
         self._stop = threading.Event()
         self._t = threading.Thread(target=self._run, daemon=True)
 
@@ -364,19 +367,41 @@ class AnonPeak:
                 self.mem_sum += cur
                 self.mem_n += 1
                 self.mem_peak = max(self.mem_peak, cur)
+            now = time.perf_counter()
+            if now - self._said >= self.report_s:
+                self._said = now
+                cpu, wall = _cpu_seconds(), now - self.t0
+                cores = (
+                    (cpu - self.cpu0) / wall
+                    if cpu is not None and self.cpu0 is not None and wall > 0
+                    else float("nan")
+                )
+                print(
+                    f"USAGE {wall / 60:5.1f} min phase={self.current} "
+                    f"mean_cores={cores:.2f} mem={(cur or self.peak_kib << 10) / 2**30:.1f} GiB",
+                    flush=True,
+                )
             self._stop.wait(0.5)
 
-    def mark(self, phase):
-        """Close a phase: its wall seconds and the CPU cores it averaged."""
-        now, cpu = time.perf_counter(), _cpu_seconds()
-        wall = now - self._mark_t
-        cores = (
-            round((cpu - self._mark_cpu) / wall, 3)
-            if cpu is not None and self._mark_cpu is not None and wall > 0
-            else None
-        )
-        self.phases[phase] = dict(s=round(wall, 1), cpu_cores=cores)
-        self._mark_t, self._mark_cpu = now, cpu
+    @contextlib.contextmanager
+    def phase(self, name):
+        """Time one phase and record the CPU cores it averaged."""
+        self.current = name
+        t, cpu = time.perf_counter(), _cpu_seconds()
+        try:
+            yield
+        finally:
+            wall = time.perf_counter() - t
+            now = _cpu_seconds()
+            self.phases[name] = dict(
+                s=round(wall, 1),
+                cpu_cores=(
+                    round((now - cpu) / wall, 3)
+                    if now is not None and cpu is not None and wall > 0
+                    else None
+                ),
+            )
+            self.current = None
 
     def __enter__(self):
         self._t.start()
@@ -455,21 +480,21 @@ def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
         return path
     t0 = time.time()
     with AnonPeak() as anon:
-        ds = Dataset(cell["dataset"], data_root)
+        with anon.phase("load"):
+            ds = Dataset(cell["dataset"], data_root)
         if ds.gt is None:
             raise SystemExit(f"no ground truth for {cell['dataset']}; run gt.py first")
-        anon.mark("load")
-        ids, stored, build_s, search_s, extra = METHODS[cell["method"]](
-            ds, cell, threads
-        )
-        anon.mark("index")
+        with anon.phase("index"):
+            ids, stored, build_s, search_s, extra = METHODS[cell["method"]](
+                ds, cell, threads
+            )
         ids = np.asarray(ids, dtype=np.int64)
-        hits = dict(
-            hits_single=hits_at_10(ds.gt, ids[:, :10]).tolist(),
-            hits_rr2=hits_at_10(ds.gt, rerank(ds, ids, 20)).tolist(),
-            hits_rr5=hits_at_10(ds.gt, rerank(ds, ids, 50)).tolist(),
-        )
-        anon.mark("rerank")
+        with anon.phase("rerank"):
+            hits = dict(
+                hits_single=hits_at_10(ds.gt, ids[:, :10]).tolist(),
+                hits_rr2=hits_at_10(ds.gt, rerank(ds, ids, 20)).tolist(),
+                hits_rr5=hits_at_10(ds.gt, rerank(ds, ids, 50)).tolist(),
+            )
     rec = dict(
         cell=cell,
         n=ds.n,
