@@ -135,11 +135,19 @@ def main():
         action="store_true",
         help="delete the offending Job (default: report only)",
     )
+    ap.add_argument(
+        "--heartbeat",
+        help="touch this path every cycle; submit_pool.py refuses to send an unmeasured "
+        "calibration cell unless this heartbeat is fresh",
+    )
     a = ap.parse_args()
 
     hist = collections.defaultdict(lambda: collections.deque(maxlen=a.window))
     acted = set()
     while True:
+        if a.heartbeat:
+            with open(a.heartbeat, "w") as fh:
+                fh.write(time.strftime("%FT%TZ", time.gmtime()))
         req, use = requests(a.namespace, a.selector), usage(a.namespace)
         for pod, (rc, rm, job, age) in sorted(req.items()):
             if pod in use:
