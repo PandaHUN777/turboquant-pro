@@ -24,7 +24,7 @@ import json
 import math
 import os
 
-from .grid import DIMS, ROWS, cells
+from .grid import DIMS, ROWS, cells, supplementary_cells
 
 GIB = 2**30
 BASE = 0.7 * GIB
@@ -129,7 +129,11 @@ def calibration_cells():
 
 
 def factors(results_dir):
-    """Per-class measured/model ratio and measured usage, from finished calibration cells.
+    """Per-class measured/model ratio and measured usage, from the best finished cell.
+
+    The class's calibration cell is preferred, then its largest-model finished cell: any real
+    cell of a class meters it, and insisting on the calibration cell would mean re-running
+    work already done, which measures nothing since a finished cell returns without running.
 
     ``usage`` is what the cluster averages over a pod's life (cell.py's meter). Without it a
     request is a guess: on 2026-09-15 the submitter's preflight passed every cell because it
@@ -137,16 +141,23 @@ def factors(results_dir):
     """
     out = {}
     calib = {c["cell_id"]: c for c in calibration_cells()}
+    known = {c["cell_id"]: c for c in list(cells()) + list(supplementary_cells())}
+    best = {}
     for p in glob.glob(os.path.join(results_dir, "*.json")):
         with open(p, encoding="utf-8") as f:
             r = json.load(f)
         cid = r["cell"]["cell_id"]
-        if cid not in calib or not r.get("peak_anon_gib"):
+        c = calib.get(cid) or known.get(cid)
+        if c is None or not r.get("peak_anon_gib"):
             continue
-        c = calib[cid]
+        key = f"{c['dataset']}/{c['method']}"
+        rank = (cid in calib, model_bytes(c, r["threads"]))
+        if key not in best or rank > best[key][0]:
+            best[key] = (rank, r, c)
+    for key, (_rank, r, c) in best.items():
         u = r.get("usage") or {}
-        out[f"{c['dataset']}/{c['method']}"] = dict(
-            cell=cid,
+        out[key] = dict(
+            cell=c["cell_id"],
             measured_gib=r["peak_anon_gib"],
             model_gib=round(model_bytes(c, r["threads"]) / GIB, 3),
             factor=round(r["peak_anon_gib"] * GIB / model_bytes(c, r["threads"]), 3),
