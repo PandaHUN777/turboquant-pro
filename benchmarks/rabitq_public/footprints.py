@@ -131,9 +131,10 @@ def calibration_cells():
 def factors(results_dir):
     """Per-class measured/model ratio and measured usage, from the best finished cell.
 
-    The class's calibration cell is preferred, then its largest-model finished cell: any real
-    cell of a class meters it, and insisting on the calibration cell would mean re-running
-    work already done, which measures nothing since a finished cell returns without running.
+    A cell that recorded usage is preferred, then the calibration cell, then the largest-model
+    finished one: any real cell of a class meters it, and insisting on the calibration cell
+    would mean re-running work already done, which measures nothing since a finished cell
+    returns without running.
 
     ``usage`` is what the cluster averages over a pod's life (cell.py's meter). Without it a
     request is a guess: on 2026-09-15 the submitter's preflight passed every cell because it
@@ -151,7 +152,14 @@ def factors(results_dir):
         if c is None or not r.get("peak_anon_gib"):
             continue
         key = f"{c['dataset']}/{c['method']}"
-        rank = (cid in calib, model_bytes(c, r["threads"]))
+        # A cell that recorded usage outranks one that did not, whatever its role: the
+        # calibration cells all finished before the meter existed, and preferring them by
+        # role left every class unmeasured.
+        rank = (
+            bool((r.get("usage") or {}).get("mean_cpu_cores")),
+            cid in calib,
+            model_bytes(c, r["threads"]),
+        )
         if key not in best or rank > best[key][0]:
             best[key] = (rank, r, c)
     for key, (_rank, r, c) in best.items():
