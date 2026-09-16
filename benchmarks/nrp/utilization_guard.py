@@ -2,6 +2,14 @@
 
     python utilization_guard.py --selector app=tqp-rbq --apply
 
+Bootstrapping a campaign, where the first cell of each class runs before anyone knows what it
+uses, wants a short fuse rather than the defaults, and a heartbeat the submitter can check:
+
+    python utilization_guard.py --selector app=tqp-rbq --apply         --interval 30 --window 4 --grace 240 --heartbeat pool/utilization_guard.heartbeat
+
+which stops an idle pod about six minutes in, instead of the roughly twenty-five the defaults
+allow. The defaults suit a campaign whose classes are already measured.
+
 The cluster requires 20-200% of requested CPU and 20-150% of requested memory, measured as a
 time average; pods at or below 1 CPU and 2 GiB are exempt. A snapshot of `kubectl top` is not
 evidence of compliance: on 2026-09-15 eight campaign pods were flagged at 1-4% CPU while a
