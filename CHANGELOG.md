@@ -61,6 +61,33 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
   against the RaBitQ campaign grid. Until that last one runs this is a working
   control plane, not a validated one — see `docs/DESIGN_planner.md` §2.9.
 
+### 2026-09-15 — the ADC fast-scan kernel wrapped its sums past 257 dims (fixed, `3d96506`)
+- **Defect.** The optional AVX2 kernel (`turboquant_pro/_adc/adc_scan.cpp`,
+  1.1.0 onward) accumulated the per-dim uint8 lookups of a query's table in
+  uint16 across all `d'` dims. For `d' > 257` the sum can pass 65535 and wrap,
+  and it wraps for exactly the highest-scoring vectors, which is the worst
+  place. Measured on 100k real text-embedding-3-large rows at 1536 dims, 2 bits:
+  single-pass recall@10 0.848 on the kernel against 0.905 on the exact numpy
+  path. Indexes with `d' <= 257`, the scalar path, and every rerank result are
+  unaffected. The registered arm of the public RaBitQ comparison
+  (`docs/PREREG_rabitq_public.md`, Amendment 2) ran the defective kernel and is
+  reported as such.
+- **Fix.** uint16 lanes fold into uint32 every 256 dims, so no sum can wrap
+  at any `d'`. The same commit nibble-packs two codes per byte in the blocked
+  layout (half the memory traffic), keeps a size-`k` heap per query instead of
+  two `N`-entry arrays sorted per query, releases the GIL, and rejects codes
+  above 4 bits, which `ADCIndex` routes to the numpy path (the 16-entry
+  `pshufb` table never supported them).
+- **Pinned.** `tests/test_adc_kernel.py` replays the kernel's uint8
+  arithmetic exactly in integers and compares top-k scores (d' 16 to 1024,
+  2 to 4 bits, `N` not a multiple of 32); a constructed worst case whose every
+  lookup is 255 fails on the old kernel at `d' >= 1024` and passes now. A CI job
+  compiles the kernel and runs these tests, since the main matrix never built
+  it.
+- **Not yet in any wheel.** The last published pre-release (2.0.0a2) carries
+  the defect. Build the kernel from this tree (`python -m turboquant_pro._adc`)
+  or wait for 2.0.0a3.
+
 ### 2026-09-03 — Python 3.9 actually tested; CLI and bit-packing debt paid down
 - **Python 3.9 is now tested, not just advertised.** A throwaway CI probe showed the
   library passes on 3.9 except for one `zip(..., strict=False)` call in the KV hot
