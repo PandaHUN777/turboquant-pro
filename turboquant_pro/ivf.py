@@ -2,44 +2,35 @@
 # Copyright (c) 2026 Andrew H. Bond
 # MIT License
 
-"""IVF coarse-partition layer — sublinear compressed-domain search (experimental).
+"""IVF coarse-partition layer: sublinear search over chunks of the v3 scan.
 
 The base :class:`~turboquant_pro.adc_index.ADCIndex` scans every code (``O(N)``).
-That is fine to a few million rows and, sharded + memory-mapped, to a billion; but
-trillion-scale *serving* needs a query to touch a small fraction of the corpus. IVF
-(inverted file) does that: cluster the corpus into ``nlist`` cells, and at query time
-scan only the cells that can contain the answer.
+IVF (inverted file) clusters the corpus into ``nlist`` cells and scans only the
+cells that can contain the answer. Here a cell **is** a chunk of the ADC index:
+rows are sorted by cell at build, and a search is one ``search_chunks`` call over
+the probed cells with a per-(query, cell) constant, on the kernel when it is
+compiled and on the numpy path otherwise.
 
-**Coarse space = the quantized direction.** Everything is derived from the codes the
-ADC index already stores: a row's direction is ``normalize(cent[codes])``. We k-means
-those unit directions into ``nlist`` centroids, so a cell groups rows the ADC scorer
-would score similarly. No new per-row storage — the partition is reconstructable from
-the codes.
+**Residual coding (default).** The coarse quantizer is a plain k-means in PCA
+coordinates; a row is coded as the direction of ``x_p - c`` plus ``||x_p - c||``.
+The residual is shorter than the row, so the same bits carry less error, and
+because the rotation is global the query's lookup table serves every cell: the
+centroid enters only through the constant ``q_proj . c``. RaBitQ's IVF form does
+the same, and the public comparison measured it worth 4 to 24 points of
+single-pass recall at 1 bit over flat coding (``docs/PREREG_rabitq_public.md``,
+interim 2026-09-17). ``residual=False`` keeps the plain codes and only partitions.
 
-**Probe order + stop = the kernel of A\\*.** Each cell carries its angular radius
-``r`` (the largest angle from its centroid to any member). On the unit sphere the
-triangle inequality gives, for a query at angle ``theta`` from the centroid, an
-*admissible* upper bound on any member's cosine: ``cos(max(0, theta - r))`` — no
-member can score higher. Order cells by that bound (best-first), keep the incumbent
-k-th surrogate score, and **stop as soon as the next cell's bound cannot beat it**.
-The stop is provably safe (the heuristic never underestimates), so it returns the
-exact top-k of the coarse surrogate.
+**Probe order and stop.** Cells are ordered by an upper bound on the score any
+of their rows can reach (``(qbias + q_proj . c + ||q|| R_c) * vr_max``, ``R_c``
+the cell's largest residual norm). A fixed ``nprobe`` scans that many; the
+adaptive stop (``nprobe=None``) probes best-first and stops when the next bound
+cannot beat the incumbent k-th score. The admissible bound is exact but loose
+in high dimension; **weighted A-star** (``radius_scale < 1``) shrinks the radius
+to prune more for a bounded loss of recall. ``benchmarks/bench_ivf.py`` measures
+the trade-off.
 
-The honest catch, measured (``benchmarks/bench_ivf.py``): in high dimension cells are
-angularly *wide* (radius ~65 deg at 32-d), so the worst-case bound is near 1 for most
-cells and the admissible stop prunes almost nothing — it can approach a full scan.
-The fix is **weighted A\\*** (ε-admissible): shrink the radius by ``beta =
-radius_scale`` to inflate the heuristic and prune more, trading a bounded amount of
-recall for a large scan reduction. ``beta`` sweeps smoothly from exact (``beta=1``,
-provable, ~full scan) to aggressive (``beta=0.25``: recall ~0.80 at ~3% scan, ~30x
-fewer rows); ``beta=0.5`` sits near recall ~1.0 at ~20% scan. Fixed ``nprobe`` gives
-the same tradeoff on a manual dial (nprobe=32 -> recall ~0.96 at ~10% scan). Final
-ranking rescoring the probed candidates with the exact ADC score (and optional fp32
-rerank) matches the brute-force ADC top-k up to the recall reported above. Acceptance
-is recall of the shortlist, never reconstruction cosine.
-
-This is the single-node substrate; it composes with sharding (per-shard IVF, the same
-best-first order across shards) and memmap (a probe gathers only its cells' rows).
+This is the single-node substrate; the hierarchical coarse quantizer and the
+sharded IVF path (``sharded_index.py``) build on the functions below.
 """
 
 from __future__ import annotations
@@ -271,31 +262,81 @@ class ProbeStats:
         return self.rows_scanned / max(self.rows_total, 1)
 
 
-class IVFIndex:
-    """Coarse-partitioned ADC index with best-first, early-terminating probing.
+def _kmeans_points(
+    x: np.ndarray, k: int, iters: int, rng: np.random.Generator, block: int = 100_000
+) -> np.ndarray:
+    """Plain k-means in PCA coordinates (the coarse quantizer of a residual-coded
+    index). Empty cells are reseeded on random points."""
+    n = len(x)
+    c = x[rng.choice(n, size=k, replace=False)].astype(np.float32).copy()
+    for _ in range(iters):
+        assign = _assign_points(x, c, block)
+        new = np.zeros_like(c)
+        counts = np.bincount(assign, minlength=k)
+        np.add.at(new, assign, x)
+        empty = counts == 0
+        new[~empty] /= counts[~empty, None]
+        if empty.any():
+            new[empty] = x[rng.choice(n, size=int(empty.sum()), replace=False)]
+        c = new.astype(np.float32)
+    return c
 
-    Experimental. Build with :meth:`create`; search with a fixed ``nprobe`` (classic
-    IVF) or, by default, the adaptive A\\*-style stop (``nprobe=None``).
+
+def _assign_points(x: np.ndarray, c: np.ndarray, block: int = 100_000) -> np.ndarray:
+    """Nearest centroid in L2, blocked:
+    ``argmin ||x - c||^2 = argmax x.c - ||c||^2 / 2``."""
+    half = 0.5 * (c * c).sum(axis=1).astype(np.float32)
+    out = np.empty(len(x), dtype=np.int64)
+    for s in range(0, len(x), block):
+        xb = np.asarray(x[s : s + block], dtype=np.float32)
+        out[s : s + block] = np.argmax(xb @ c.T - half[None, :], axis=1)
+    return out
+
+
+class IVFIndex:
+    """Coarse-partitioned ADC index on the v3 scan: every cell is one chunk.
+
+    Rows are sorted by cell at build, so a cell is one chunk of the underlying
+    :class:`ADCIndex` and a search is a single :meth:`ADCIndex.search_chunks`
+    call over the probed cells. With ``residual=True`` (the default) a row is
+    coded relative to its cell's centroid in PCA coordinates: the codes describe
+    the direction of ``x_p - c`` and the stored norm is ``||x_p - c||``, which is
+    smaller than ``||x_p||``, so the same bits carry less error. The lookup table
+    does not depend on the centroid (the rotation is global), so the only cost
+    at scan time is the per-(query, cell) constant ``q_rot . rotate(c)``.
+
+    ``nprobe`` an int probes that many nearest cells (classic IVF). ``nprobe=None``
+    is the adaptive best-first stop: cells are ordered by an upper bound on the
+    score any of their rows can reach, and probing stops when the next bound
+    cannot beat the incumbent k-th score. ``bound="admissible"`` uses the exact
+    bound (never prunes a cell that could win; scans a lot in high dimension);
+    ``bound="weighted"`` shrinks each cell's radius by ``radius_scale`` (weighted
+    A*), pruning more for a bounded loss of recall.
     """
 
     def __init__(
         self,
         adc: ADCIndex,
         centroids: np.ndarray,
-        assign: np.ndarray,
+        members: np.ndarray,
+        offsets: np.ndarray,
         radius: np.ndarray,
+        vr_range: np.ndarray,
+        ang_radius: np.ndarray,
         originals: np.ndarray | None,
+        residual: bool,
     ):
         self._adc = adc
-        self._c = centroids  # (nlist, d') unit
-        self._assign = assign  # (N,) cell per row
-        self._radius = radius  # (nlist,) angular radius (radians)
+        self._c = np.asarray(centroids, dtype=np.float32)  # (nlist, d') PCA coordinates
+        self._c_rot = np.ascontiguousarray(adc._coder.rotate(self._c), dtype=np.float32)
+        self._members = np.asarray(members, dtype=np.int64)  # original row per position
+        self._offsets = np.asarray(offsets, dtype=np.int64)
+        self._radius = np.asarray(radius, dtype=np.float32)  # max ||x_p - c|| per cell
+        self._vr = np.asarray(vr_range, dtype=np.float32)  # (nlist, 2) min/max vrnorm
+        self._ang_radius = np.asarray(ang_radius, dtype=np.float32)
         self._originals = originals
-        self._n = len(assign)
-        # inverted lists: rows grouped by cell (a cell's rows are contiguous)
-        self._offsets, self._members = inverted_lists(assign, len(centroids))
-        # quantized unit directions (source of truth = the codes)
-        self._dir = _normalize(adc._cent[adc._codes].astype(np.float32))
+        self._residual = bool(residual)
+        self._n = int(len(members))
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -307,43 +348,209 @@ class IVFIndex:
         *,
         output_dim: int | None = None,
         bits: int = 4,
+        bit_schedule: list[tuple[int, int]] | None = None,
         nlist: int | None = None,
         seed: int = 42,
         whiten: bool = False,
         train_cap: int = 200_000,
         kmeans_iters: int = 12,
         keep_originals: bool = True,
+        residual: bool = True,
+        block: int = 100_000,
     ) -> IVFIndex:
+        """Build from a corpus in RAM: fit the PCA on its first ``train_cap`` rows,
+        then :meth:`from_blocks` over it."""
         x = np.asarray(embeddings, dtype=np.float32)
         if x.ndim != 2:
             raise ValueError(f"embeddings must be 2-D (n, dim), got {x.shape}")
         n, dim = x.shape
         out = dim if output_dim is None else min(int(output_dim), dim)
-        rng = np.random.default_rng(seed)
-
         pca = PCAMatryoshka(input_dim=dim, output_dim=out, whiten=whiten)
         pca.fit(x[: min(n, train_cap)])
-        adc = ADCIndex(pca.with_quantizer(bits=bits)).add(x)
+        rng = np.random.default_rng(seed)
+        train = x if n <= train_cap else x[rng.choice(n, size=train_cap, replace=False)]
+        ivf = cls.from_blocks(
+            pca,
+            lambda: (x[s : s + block] for s in range(0, n, block)),
+            n=n,
+            train=train,
+            bits=bits,
+            bit_schedule=bit_schedule,
+            nlist=nlist,
+            seed=seed,
+            kmeans_iters=kmeans_iters,
+            residual=residual,
+            block=block,
+        )
+        ivf._originals = x if keep_originals else None
+        return ivf
 
-        # Coarse quantizer over the quantized unit directions.
-        d = _normalize(adc._cent[adc._codes].astype(np.float32))
+    @classmethod
+    def from_blocks(
+        cls,
+        pca: PCAMatryoshka,
+        blocks,
+        *,
+        n: int,
+        train: np.ndarray,
+        bits: int = 4,
+        bit_schedule: list[tuple[int, int]] | None = None,
+        nlist: int | None = None,
+        seed: int = 42,
+        kmeans_iters: int = 12,
+        residual: bool = True,
+        block: int = 100_000,
+    ) -> IVFIndex:
+        """Build from a corpus streamed as row blocks, in two passes.
+
+        ``pca`` is fitted; ``blocks()`` returns a fresh iterable of ``(rows, dim)``
+        float32 arrays covering the ``n`` rows in order, and is called twice: once to
+        assign every row to a cell, once to code the rows. ``train`` (rows of the
+        input space) fits the coarse quantizer. Nothing larger than the per-cell
+        code buffers and one block is held, so a 10M-row corpus builds on a pod
+        that cannot hold it in float32.
+        """
+        rng = np.random.default_rng(seed)
+        if bit_schedule is None:
+            pipeline = pca.with_quantizer(bits=bits, seed=seed)
+        else:
+            pipeline = pca.with_weighted_quantizer(bit_schedule=bit_schedule, seed=seed)
+        adc = ADCIndex(pipeline)
         if nlist is None:  # FAISS-style sqrt(N), clamped to something sane
             nlist = int(np.clip(round(np.sqrt(n)), 1, max(1, n)))
-        nlist = min(nlist, n)
-        train = d if n <= train_cap else d[rng.choice(n, size=train_cap, replace=False)]
-        centroids = _kmeans_unit(train, nlist, kmeans_iters, rng)
-        assign = _assign(d, centroids)
+        nlist = min(int(nlist), n)
+        centroids = _kmeans_points(adc.project(train), nlist, kmeans_iters, rng, block)
 
-        # Per-cell angular radius: the largest angle from centroid to any member.
-        dots = np.einsum("ij,ij->i", d, centroids[assign])
-        ang = np.arccos(np.clip(dots, -1.0, 1.0))
+        # pass 1: a cell for every row
+        assign = np.empty(n, dtype=np.int64)
+        s = 0
+        for rows in blocks():
+            xp = adc.project(rows)
+            assign[s : s + len(xp)] = _assign_points(xp, centroids, block)
+            s += len(xp)
+        if s != n:
+            raise ValueError(f"blocks covered {s} rows, expected {n}")
+        offsets, members = inverted_lists(assign, nlist)
+
+        # pass 2: code every row against its cell, buffered per cell
+        buf_codes = [[] for _ in range(nlist)]
+        buf_cnorm = [[] for _ in range(nlist)]
+        buf_vr = [[] for _ in range(nlist)]
+        buf_segw = [[] for _ in range(nlist)]
         radius = np.zeros(nlist, dtype=np.float32)
-        np.maximum.at(radius, assign, ang)
-        return cls(adc, centroids, assign, radius, x if keep_originals else None)
+        ang = np.zeros(nlist, dtype=np.float32)
+        vr_lo = np.full(nlist, np.inf, dtype=np.float32)
+        vr_hi = np.full(nlist, -np.inf, dtype=np.float32)
+        c_unit = centroids / np.maximum(
+            np.linalg.norm(centroids, axis=1, keepdims=True), 1e-30
+        )
+        s = 0
+        for rows in blocks():
+            xp = adc.project(rows)
+            a = assign[s : s + len(xp)]
+            order = np.argsort(a, kind="stable")
+            bounds = np.searchsorted(a[order], np.arange(nlist + 1))
+            for c in range(nlist):
+                sel = order[bounds[c] : bounds[c + 1]]
+                if not len(sel):
+                    continue
+                sub = xp[sel]
+                if residual:
+                    codes, cnorm, vrnorm, segw = adc.encode_residuals(sub, centroids[c])
+                else:
+                    cnorm = np.linalg.norm(sub, axis=1).astype(np.float32)
+                    codes, segw, cc = adc._coder.encode(
+                        sub / np.maximum(cnorm[:, None], 1e-30)
+                    )
+                    vrnorm = adc._recon_inverse_norm(cc, cnorm)
+                buf_codes[c].append(codes)
+                buf_cnorm[c].append(cnorm)
+                buf_vr[c].append(vrnorm)
+                if segw is not None:
+                    buf_segw[c].append(segw)
+                r = float(np.linalg.norm(sub - centroids[c], axis=1).max())
+                if not residual:  # the bound then needs ||x_p|| itself
+                    r += float(np.linalg.norm(centroids[c]))
+                radius[c] = max(radius[c], r)
+                vr_lo[c] = min(vr_lo[c], float(vrnorm.min()))
+                vr_hi[c] = max(vr_hi[c], float(vrnorm.max()))
+                u = sub / np.maximum(np.linalg.norm(sub, axis=1, keepdims=True), 1e-30)
+                ang[c] = max(
+                    ang[c], float(np.arccos(np.clip(u @ c_unit[c], -1.0, 1.0)).max())
+                )
+            s += len(xp)
+        # members must list rows in the order the buffers hold them: block order
+        # within a cell, which is what the stable argsort of ``assign`` gives
+        for c in range(nlist):
+            d = adc.dim
+            codes = (
+                np.concatenate(buf_codes[c])
+                if buf_codes[c]
+                else np.zeros((0, d), np.uint8)
+            )
+            cnorm = (
+                np.concatenate(buf_cnorm[c])
+                if buf_cnorm[c]
+                else np.zeros(0, np.float32)
+            )
+            vrnorm = np.concatenate(buf_vr[c]) if buf_vr[c] else np.zeros(0, np.float32)
+            segw = None
+            if adc._coder.nseg > 1:
+                segw = (
+                    np.concatenate(buf_segw[c])
+                    if buf_segw[c]
+                    else np.zeros((0, adc._coder.nseg), np.float32)
+                )
+            adc.add_coded(codes, cnorm, vrnorm, segw)
+            buf_codes[c] = buf_cnorm[c] = buf_vr[c] = buf_segw[c] = None
+        vr_range = np.stack(
+            [
+                np.where(np.isfinite(vr_lo), vr_lo, 0.0),
+                np.where(np.isfinite(vr_hi), vr_hi, 0.0),
+            ],
+            axis=1,
+        )
+        return cls(
+            adc, centroids, members, offsets, radius, vr_range, ang, None, residual
+        )
 
     # ------------------------------------------------------------------ #
     # Search                                                             #
     # ------------------------------------------------------------------ #
+    def _cell_terms(self, q_rot: np.ndarray, qbias: np.ndarray):
+        """Per-(query, cell) scan constants: ``ip = q_rot . rotate(c)`` is
+        ``q_proj . c``, the centroid's share of ``q . recon`` under residual
+        coding, so the constant is ``qbias + ip``; without residual coding the
+        centroid carries no part of the score and the constant is ``qbias``."""
+        ip = q_rot @ self._c_rot.T  # (nq, nlist)
+        if self._residual:
+            biases = qbias[:, None] + ip
+        else:
+            biases = np.broadcast_to(qbias[:, None], ip.shape)
+        return np.ascontiguousarray(biases, dtype=np.float32), ip
+
+    def _bounds(self, beta: float, q_rot: np.ndarray):
+        """Per-cell upper bound on the cosine any row of the cell can reach.
+
+        Every row of cell ``c`` lies within the cell's angular radius ``phi_c`` of
+        the centroid direction, so its angle to the query is at least
+        ``theta_qc - phi_c`` and its cosine at most ``cos(max(0, theta_qc - beta *
+        phi_c))``; ``beta = 1`` is the admissible bound, ``beta < 1`` the weighted
+        A-star heuristic. The bound is on the PCA-space cosine, which is what the
+        cosine score is up to the mean term and the reconstruction norm; the
+        admissible bound is widened by two percent so it also covers the kernel's
+        uint8 table rounding.
+        """
+        qd = q_rot / np.maximum(np.linalg.norm(q_rot, axis=1, keepdims=True), 1e-30)
+        cd = self._c_rot / np.maximum(
+            np.linalg.norm(self._c_rot, axis=1, keepdims=True), 1e-30
+        )
+        theta = np.arccos(np.clip(qd @ cd.T, -1.0, 1.0))  # (nq, nlist)
+        ub = np.cos(np.maximum(0.0, theta - beta * self._ang_radius[None, :]))
+        if beta >= 1.0:
+            ub = ub + 0.02
+        return ub.astype(np.float32)
+
     def search(
         self,
         queries: np.ndarray,
@@ -356,94 +563,80 @@ class IVFIndex:
         max_cells: int | None = None,
         return_stats: bool = False,
     ):
-        """Top-``k`` per query.
-
-        ``nprobe`` an int → probe that many best-first cells (classic IVF).
-        ``nprobe=None`` → adaptive best-first stop: probe cells in descending
-        upper-bound order and stop once the next cell's bound can't beat the
-        incumbent k-th neighbour. The bound is ``cos(max(0, theta - beta*r))`` with
-        ``beta = radius_scale`` — **weighted A\\***:
-
-        * ``bound="admissible"`` (beta forced to 1) — worst-case radius, provably the
-          coarse-exact top-k, but ``r`` is large in high dimension so it prunes little
-          (can approach a full scan). Use when exactness matters.
-        * ``bound="weighted"`` (default, ``radius_scale`` in [0,1]) — shrinking the
-          radius inflates the heuristic and prunes more, trading a little recall for a
-          large scan reduction. ``radius_scale`` is the adaptive-``nprobe`` knob.
-        """
+        """Top-``k`` per query; see the class docstring for ``nprobe`` and ``bound``."""
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
+        nq = len(q)
         q_rot, qbias = self._adc._query_terms(q)
-        qdir = _normalize(q_rot)  # cosine surrogate lives in rotated-direction space
-        cos_qc = qdir @ self._c.T  # (nq, nlist)
-        theta = np.arccos(np.clip(cos_qc, -1.0, 1.0))
+        biases, _ = self._cell_terms(q_rot, qbias)
         beta = 1.0 if bound == "admissible" else float(radius_scale)
-        ub = np.cos(np.maximum(0.0, theta - beta * self._radius[None, :]))
-        order = np.argsort(-ub, axis=1)  # best-first: descending (weighted) bound
+        ub = self._bounds(beta, q_rot)  # (nq, nlist)
+        order = np.argsort(-ub, axis=1)
+        nlist = len(self._c)
+        cap = nlist if max_cells is None else min(int(max_cells), nlist)
+        kk = k * max(rerank, 1) if rerank else k
 
-        ids = np.full((len(q), k), -1, dtype=np.int64)
-        scores = np.full((len(q), k), np.nan, dtype=np.float32)
-        stats: list[ProbeStats] = []
-        cap = max_cells if max_cells is not None else len(self._c)
-        for i in range(len(q)):
-            cand, cells, scanned = self._probe_one(
-                qdir[i], order[i], ub[i], k, nprobe, cap
+        if nprobe is not None:
+            p = min(int(nprobe), cap)
+            probes = order[:, :p].astype(np.int32)
+            pos, sc = self._adc.search_chunks(
+                q_rot, probes, np.take_along_axis(biases, probes, axis=1), kk
             )
-            stats.append(ProbeStats(cells, scanned, self._n))
-            if not len(cand):
-                continue
-            ci, cs = self._score_candidates(cand, q_rot[i], qbias[i], k)
-            if rerank and self._originals is not None:
-                ci = self._rerank_one(ci, q[i], k)
-            m = len(ci)
-            ids[i, :m] = ci
-            scores[i, :m] = cs[:m] if not rerank else np.nan
+            probed = [p] * nq
+        else:
+            pos = np.full((nq, kk), -1, dtype=np.int64)
+            sc = np.full((nq, kk), -1e30, dtype=np.float32)
+            probed = []
+            for i in range(nq):
+                pos[i], sc[i], m = self._probe_adaptive(
+                    q_rot[i], order[i], ub[i], biases[i], kk, cap
+                )
+                probed.append(m)
+        counts = np.diff(self._offsets)
+        stats = [
+            ProbeStats(int(m), int(counts[order[i, :m]].sum()), self._n)
+            for i, m in enumerate(probed)
+        ]
+        ids = np.where(pos >= 0, self._members[np.maximum(pos, 0)], -1)
+        scores = np.where(pos >= 0, sc, np.nan).astype(np.float32)
+        if rerank and self._originals is not None:
+            ids = self._rerank(ids, q, k)
+            scores = np.full((nq, k), np.nan, dtype=np.float32)
+        else:
+            ids, scores = ids[:, :k], scores[:, :k]
         if return_stats:
             return ids, scores, stats
         return ids, scores
 
-    def _probe_one(self, qdir_i, order, stop_i, k, nprobe, cap):
-        """Best-first cell probing for one query. Returns (candidate rows, #cells,
-        #rows scanned). Adaptive stop when the next cell's stop value <= incumbent."""
-        cand_parts: list[np.ndarray] = []
-        scanned = 0
-        cells = 0
-        kth = -np.inf  # incumbent k-th surrogate cosine
-        best = np.empty(0, dtype=np.float32)  # running top-k surrogate cosines
-        fixed = nprobe is not None
-        for c in order[:nprobe] if fixed else order:
-            if not fixed and stop_i[c] <= kth:
-                break  # no better cell remains under this stop rule
-            s, e = self._offsets[c], self._offsets[c + 1]
-            if e <= s:
+    def _probe_adaptive(self, q_rot_i, order, ub, biases, kk, cap):
+        """Best-first probing for one query in growing rounds: the probed prefix of
+        ``order`` doubles until the next cell's bound cannot beat the incumbent
+        k-th score (or ``cap`` cells are probed). Returns (positions, scores, cells)."""
+        m = 1
+        pos = sc = None
+        while True:
+            m = min(m, cap)
+            probes = order[None, :m].astype(np.int32)
+            pos, sc = self._adc.search_chunks(
+                q_rot_i[None, :], probes, biases[None, order[:m]], kk
+            )
+            filled = int((pos[0] >= 0).sum())
+            kth = float(sc[0, kk - 1]) if filled >= kk else -np.inf
+            if m >= cap or ub[order[m]] <= kth:
+                return pos[0], sc[0], m
+            m *= 2
+
+    def _rerank(self, ids, q, k):
+        out = np.full((len(q), k), -1, dtype=np.int64)
+        for i in range(len(q)):
+            c = ids[i][ids[i] >= 0]
+            if not len(c):
                 continue
-            rows = self._members[s:e]
-            cand_parts.append(rows)
-            cells += 1
-            scanned += len(rows)
-            if not fixed:  # maintain incumbent k-th surrogate score for the stop test
-                best = np.concatenate([best, self._dir[rows] @ qdir_i])
-                if len(best) > k:
-                    best = np.partition(best, len(best) - k)[-k:]
-                if len(best) >= k:
-                    kth = float(best.min())
-            if cells >= cap:
-                break
-        cand = np.concatenate(cand_parts) if cand_parts else np.empty(0, np.int64)
-        return cand, cells, scanned
-
-    def _score_candidates(self, cand, q_rot_i, qbias_i, k):
-        """Exact ADC score over probed candidate rows; return top-k (ids, scores)."""
-        sc = adc_score_rows(self._adc, cand, q_rot_i, qbias_i)
-        kk = min(k, len(cand))
-        top = np.argpartition(-sc, kk - 1)[:kk]
-        top = top[np.argsort(-sc[top])]
-        return cand[top], sc[top]
-
-    def _rerank_one(self, cand_ids, q_i, k):
-        s = self._originals[cand_ids] @ q_i
-        return cand_ids[np.argsort(-s)[:k]]
+            s = self._originals[c] @ q[i]
+            top = c[np.argsort(-s)[:k]]
+            out[i, : len(top)] = top
+        return out
 
     # ------------------------------------------------------------------ #
     # Introspection                                                      #
@@ -454,9 +647,13 @@ class IVFIndex:
             "n_rows": int(self._n),
             "nlist": int(len(self._c)),
             "dim_coarse": int(self._c.shape[1]),
+            "residual": self._residual,
             "cell_min": int(counts.min()),
             "cell_max": int(counts.max()),
             "cell_mean": float(counts.mean()),
             "empty_cells": int((counts == 0).sum()),
-            "radius_mean_deg": float(np.degrees(self._radius.mean())),
+            "radius_mean": float(self._radius.mean()),
+            "radius_mean_deg": float(np.degrees(self._ang_radius.mean())),
+            "index_bytes_per_row": round(self._adc.nbytes / max(self._n, 1), 1),
+            "stored_bytes_per_row": int(self._adc.stored_bytes_per_row),
         }
