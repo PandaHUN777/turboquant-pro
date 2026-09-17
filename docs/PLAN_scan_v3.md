@@ -182,3 +182,12 @@ is.
   fraction after a first form at two bytes lost 0.12 recall at a 28-byte
   budget on synthetic data). 194 targeted tests green. A synthetic exploration
   before registration is recorded in `docs/PREREG_spectrum_bits.md`.
+- 2026-09-17 23:33 UTC: Phase 1 closed (changelog `8cd6e98`; `python -m build`
+  on Atlas at `f511e79` produced the 2.0.0a3 sdist, which carries the kernel
+  source, and wheel; the owner publishes). Phases 2 and 3 committed as
+  `491ba6a`, Phase 4 code as `f511e79` (full suite 1901 passed, 4 pre-existing
+  failures, one of the original five fixed by the IVF rewrite). The registered
+  cells of `docs/PREREG_spectrum_bits.md` started on Atlas at `f511e79`,
+  clone `/home/claude/tqp-reg`, output `/home/claude/deploy/spectrum_bits/`.
+  Phase 4's 90 `tq_ivf` cells wait for the registered public pool to drain
+  (25 cells left at 23:30 UTC) and for the commit to be reachable by a pod.
