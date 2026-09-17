@@ -157,3 +157,28 @@ is.
 
 - 2026-09-17: plan written; branch `feat/scan-v3` cut from `master` at
   `31ba3bf`.
+- 2026-09-17: Phase 0. Clone `/home/claude/tqp-v3` on Atlas at `master`
+  `de6729a` (the planner merge), venv with the kernel compiled. Baseline:
+  1866 passed, 5 failed, 71 skipped. The five failures predate this work and
+  share one cause: they expect the kernel, whose lookup table is uint8, to rank
+  identically to the exact numpy path (`test_index.py` x3,
+  `test_ivf.py::test_probe_all_equals_bruteforce`,
+  `test_claims_glove.py::test_replay_small_reproduces_and_gates`). Left as
+  found; the table quantization is a separate question this plan does not open.
+- 2026-09-17: Phase 2 measured on Atlas, wiki1024 rows 0 to 1M at d512 / 3
+  bits, 1,000 held-out queries, 8 threads, both trees on the same venv:
+
+  | | v2 (`de6729a`) | v3 |
+  |---|---:|---:|
+  | build, ten add() batches | 34.0 s | 28.1 s |
+  | search per query, second pass | 18.9 ms | 16.0 ms |
+  | index bytes per row | 520 | 264 |
+  | RSS added by the index | 0.36 GiB | 0.08 GiB |
+
+  Top-10 neighbours identical on all 1,000 queries. Targeted tests green with
+  the three pre-existing `test_index.py` failures unchanged.
+- 2026-09-17: Phase 3 code in place (`spectrum.py`, segmented coder, 1-bit
+  table for the embedding quantizer, one byte per segment for the energy
+  fraction after a first form at two bytes lost 0.12 recall at a 28-byte
+  budget on synthetic data). 194 targeted tests green. A synthetic exploration
+  before registration is recorded in `docs/PREREG_spectrum_bits.md`.

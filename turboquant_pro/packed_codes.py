@@ -221,3 +221,123 @@ class PackedCodes:
     def __array__(self, dtype=None, copy=None) -> np.ndarray:
         out = unpack_rows(np.asarray(self._packed), self._dim, self._slot)
         return out if dtype is None else out.astype(dtype)
+
+
+# --------------------------------------------------------------------------- #
+# The scan kernel's blocked layout (the index's in-RAM form)                  #
+# --------------------------------------------------------------------------- #
+# ``turboquant_pro/_adc/adc_scan.cpp`` scans blocks of 32 rows: for block ``b`` and
+# dim ``j`` the 16-byte strip at ``(b * d + j) * 16`` holds the 32 codes of that dim,
+# two per byte, slot ``t`` in the low nibble of byte ``t // 2`` when ``t`` is even
+# and the high nibble when odd. ``ADCIndex`` keeps its codes in this layout from the
+# moment they are computed, so a search never repacks and a row costs d/2 bytes.
+# Codes must be at most 4 bits (values 0..15).
+
+BLOCK_ROWS = 32
+
+
+def blocked_nbytes(n: int, dim: int) -> int:
+    """Bytes the blocked layout uses for ``n`` rows of ``dim`` codes."""
+    return (-(-int(n) // BLOCK_ROWS)) * int(dim) * (BLOCK_ROWS // 2)
+
+
+def pack_blocks(codes: np.ndarray) -> np.ndarray:
+    """``(n, dim)`` uint8 codes (each < 16) -> the kernel's blocked bytes, 1-D."""
+    codes = np.asarray(codes, dtype=np.uint8)
+    if codes.ndim != 2:
+        raise ValueError(f"codes must be (n, dim), got shape {codes.shape}")
+    n, dim = codes.shape
+    nblk = -(-n // BLOCK_ROWS)
+    padded = np.zeros((nblk * BLOCK_ROWS, dim), dtype=np.uint8)
+    padded[:n] = codes
+    x = padded.reshape(nblk, BLOCK_ROWS, dim).transpose(0, 2, 1)  # (nblk, dim, 32)
+    lo = x[..., 0::2] & 0x0F
+    hi = x[..., 1::2] & 0x0F
+    return np.ascontiguousarray(lo | (hi << 4)).reshape(-1)
+
+
+def unpack_blocks(
+    blocked: np.ndarray, n: int, dim: int, rows: np.ndarray | None = None
+) -> np.ndarray:
+    """Inverse of :func:`pack_blocks` for every row (``rows=None``) or a row gather."""
+    blocked = np.asarray(blocked, dtype=np.uint8)
+    nblk = -(-int(n) // BLOCK_ROWS)
+    x = blocked.reshape(nblk, dim, BLOCK_ROWS // 2)
+    if rows is None:
+        out = np.empty((nblk, dim, BLOCK_ROWS), dtype=np.uint8)
+        out[..., 0::2] = x & 0x0F
+        out[..., 1::2] = x >> 4
+        return np.ascontiguousarray(
+            out.transpose(0, 2, 1).reshape(nblk * BLOCK_ROWS, dim)[:n]
+        )
+    rows = np.asarray(rows, dtype=np.int64)
+    b, t = rows // BLOCK_ROWS, rows % BLOCK_ROWS
+    byte = x[b, :, t // 2]  # (m, dim)
+    return ((byte >> ((t % 2) * 4)[:, None].astype(np.uint8)) & 0x0F).astype(np.uint8)
+
+
+class BlockedCodes:
+    """Codes in the kernel's blocked layout, read as an ``(n, dim)`` uint8 array.
+
+    The same small ndarray interface as :class:`PackedCodes` (``shape``, ``dtype``,
+    ``len``, row gather ``[]``, ``__array__``), so every scoring path that reads
+    ``ADCIndex._codes`` keeps working; the kernel scans ``blocked`` directly.
+    """
+
+    def __init__(self, blocked: np.ndarray, n: int, dim: int):
+        blocked = np.asarray(blocked, dtype=np.uint8).reshape(-1)
+        if blocked.size != blocked_nbytes(n, dim):
+            raise ValueError(
+                f"blocked bytes {blocked.size} do not match {n} rows x {dim} dims"
+            )
+        self.blocked = blocked
+        self.shape = (int(n), int(dim))
+        self.dtype = np.dtype(np.uint8)
+
+    @classmethod
+    def from_codes(cls, codes: np.ndarray, kernel=None) -> BlockedCodes:
+        """Pack ``(n, dim)`` codes; ``kernel`` (the compiled module) packs faster."""
+        codes = np.asarray(codes, dtype=np.uint8)
+        if codes.ndim != 2:
+            raise ValueError(f"codes must be (n, dim), got shape {codes.shape}")
+        if codes.size and int(codes.max()) > 15:
+            raise ValueError("blocked codes hold at most 4 bits per code (values < 16)")
+        packer = getattr(kernel, "pack", None)
+        blocked = packer(np.ascontiguousarray(codes)) if packer else pack_blocks(codes)
+        return cls(blocked, codes.shape[0], codes.shape[1])
+
+    ndim = 2
+
+    @property
+    def nbytes(self) -> int:
+        return int(self.blocked.nbytes)
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def astype(self, dtype, copy: bool = True) -> np.ndarray:
+        return np.asarray(self).astype(dtype)
+
+    def rows(self, rows: np.ndarray) -> np.ndarray:
+        return unpack_blocks(self.blocked, self.shape[0], self.shape[1], rows)
+
+    def __getitem__(self, key) -> np.ndarray:
+        n = self.shape[0]
+        if isinstance(key, slice):
+            return self.rows(np.arange(*key.indices(n)))
+        if isinstance(key, (int, np.integer)):
+            i = int(key)
+            if i < 0:
+                i += n
+            if not 0 <= i < n:
+                raise IndexError(f"row {key} out of range for {n} rows")
+            return self.rows(np.asarray([i]))[0]
+        idx = np.asarray(key)
+        if idx.dtype == bool:
+            idx = np.flatnonzero(idx)
+        idx = np.where(idx < 0, idx + n, idx)
+        return self.rows(idx)
+
+    def __array__(self, dtype=None, copy=None) -> np.ndarray:
+        out = unpack_blocks(self.blocked, self.shape[0], self.shape[1])
+        return out if dtype is None else out.astype(dtype)

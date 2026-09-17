@@ -23,14 +23,26 @@ space ``recon = inverse_transform(norm * unrotate(cent[codes]))``,
 
 with ``q_proj = q @ components^T`` and ``||recon||`` precomputed per vector at
 build time. The ADC sum is what the kernel evaluates over the packed codes.
+
+Storage (v3, 2026-09-17). Codes live in the kernel's blocked nibble layout
+(:class:`~turboquant_pro.packed_codes.BlockedCodes`) from the moment they are
+computed: half a byte per code, packed once, never repacked at search. The
+index is a list of **chunks**, one per :meth:`add` batch, each scanned in place;
+an IVF cell is the same object with a centroid. ``_codes`` remains readable as
+an ``(N, d)`` uint8 array for the paths that reconstruct or gather rows.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from . import _adc
-from .pca import PCAMatryoshkaPipeline
+from .packed_codes import BlockedCodes, PackedCodes
+from .pca import EigenweightedPipeline, PCAMatryoshkaPipeline
+
+TABLE = 16  # symbol-table stride of the kernel (pshufb needs 16 entries)
 
 
 def _normalize(x: np.ndarray) -> np.ndarray:
@@ -68,8 +80,259 @@ def score_block(
     return inner * vrnorm[None, :]
 
 
+# --------------------------------------------------------------------------- #
+# Coders: what a pipeline's quantizer looks like to the scan                   #
+# --------------------------------------------------------------------------- #
+
+
+class _UniformCoder:
+    """One rotation and one Lloyd-Max table for every dim (``PCAMatryoshkaPipeline``).
+
+    Presents the general shape the kernel scans — per-dim symbol tables, dims
+    grouped into segments with per-row weights — with one segment and no
+    weights, so a uniform index costs exactly what it did before.
+    """
+
+    def __init__(self, pipeline: PCAMatryoshkaPipeline):
+        self._tq = pipeline.quantizer
+        self.d = int(pipeline.output_dim)
+        self.cent = np.asarray(self._tq.centroids, dtype=np.float32)
+        self.nsym = np.full(self.d, len(self.cent), dtype=np.int32)
+        self.segs = np.asarray([0, self.d], dtype=np.int32)
+        self.tables = np.zeros((self.d, TABLE), dtype=np.float32)
+        s = min(len(self.cent), TABLE)
+        self.tables[:, :s] = self.cent[None, :s]
+        self.kernel_codes = len(self.cent) <= TABLE
+
+    @property
+    def nseg(self) -> int:
+        return 1
+
+    def rotate(self, x: np.ndarray) -> np.ndarray:
+        return self._tq._rotate(x)
+
+    def unrotate(self, y: np.ndarray) -> np.ndarray:
+        return self._tq._unrotate(y)
+
+    def encode(self, unit: np.ndarray):
+        """Unit directions (n, d) in PCA space -> ``(codes, segw, cc)``.
+
+        ``cc`` is the rotated reconstruction of the direction (weights applied),
+        what the norm terms and the numpy scan need.
+        """
+        rotated = self.rotate(unit)
+        codes = np.searchsorted(self._tq.boundaries, rotated).astype(np.uint8)
+        return np.ascontiguousarray(codes), None, self.cent[codes]
+
+    def reconstruct(self, codes: np.ndarray, segw: np.ndarray | None) -> np.ndarray:
+        """Rotated reconstruction of stored rows from their codes (weights applied)."""
+        return self.cent[np.asarray(codes)]
+
+    @property
+    def stored_bytes_per_row(self) -> int:
+        """Codes packed at their width plus one float32 norm."""
+        return -(-self.d * int(self._tq.bits) // 8) + 4
+
+
+class _SegmentedCoder:
+    """One rotation and one table per segment (``EigenweightedPipeline``).
+
+    The unit direction is split into the pipeline's contiguous segments. Each
+    segment's sub-vector is scaled to unit norm, rotated by that segment's own
+    rotation and quantized with that segment's Lloyd-Max table; the norm it was
+    scaled by, its **energy fraction** (the fractions' squares sum to one), is
+    stored per row as one byte (``round(f * 255)``) and is the per-segment weight
+    the kernel applies. One byte per segment buys widths that follow the spectrum.
+    """
+
+    def __init__(self, pipeline: EigenweightedPipeline):
+        self._segments = list(pipeline.segments)  # (offset, n, bits, tq)
+        self.d = int(pipeline.output_dim)
+        if sum(n for _, n, _, _ in self._segments) != self.d:
+            raise ValueError("segments do not cover output_dim")
+        self.cent = None  # no single table: use ``tables``
+        self.segs = np.asarray(
+            [off for off, _, _, _ in self._segments] + [self.d], dtype=np.int32
+        )
+        self.nsym = np.zeros(self.d, dtype=np.int32)
+        self.tables = np.zeros((self.d, TABLE), dtype=np.float32)
+        for off, n, _bits, tq in self._segments:
+            cent = np.asarray(tq.centroids, dtype=np.float32)
+            self.nsym[off : off + n] = len(cent)
+            self.tables[off : off + n, : min(len(cent), TABLE)] = cent[None, :TABLE]
+        self.kernel_codes = bool(self.nsym.max() <= TABLE)
+
+    @property
+    def nseg(self) -> int:
+        return len(self._segments)
+
+    def _per_segment(self, x: np.ndarray, fn) -> np.ndarray:
+        out = np.empty_like(x, dtype=np.float32)
+        for off, n, _, tq in self._segments:
+            out[..., off : off + n] = fn(tq, x[..., off : off + n])
+        return out
+
+    def rotate(self, x: np.ndarray) -> np.ndarray:
+        return self._per_segment(
+            np.asarray(x, dtype=np.float32), lambda tq, v: tq._rotate(v)
+        )
+
+    def unrotate(self, y: np.ndarray) -> np.ndarray:
+        return self._per_segment(
+            np.asarray(y, dtype=np.float32), lambda tq, v: tq._unrotate(v)
+        )
+
+    def encode(self, unit: np.ndarray):
+        unit = np.asarray(unit, dtype=np.float32)
+        n_rows = len(unit)
+        codes = np.empty((n_rows, self.d), dtype=np.uint8)
+        segw = np.empty((n_rows, self.nseg), dtype=np.float32)
+        cc = np.empty((n_rows, self.d), dtype=np.float32)
+        for g, (off, n, _, tq) in enumerate(self._segments):
+            sub = unit[:, off : off + n]
+            f = np.linalg.norm(sub, axis=1).astype(np.float32)
+            # the weight is stored as one byte, so score with what is stored
+            f8 = (np.round(f * 255.0) / 255.0).astype(np.float32)
+            rotated = tq._rotate(sub / np.maximum(f[:, None], 1e-30))
+            c = np.searchsorted(tq.boundaries, rotated).astype(np.uint8)
+            codes[:, off : off + n] = c
+            segw[:, g] = f8
+            cent = np.asarray(tq.centroids, dtype=np.float32)
+            cc[:, off : off + n] = f8[:, None] * cent[c]
+        return np.ascontiguousarray(codes), segw, cc
+
+    def reconstruct(self, codes: np.ndarray, segw: np.ndarray | None) -> np.ndarray:
+        codes = np.asarray(codes)
+        if segw is None:
+            raise ValueError("a segmented index needs its per-row segment weights")
+        cc = self.tables[np.arange(self.d)[None, :], codes]  # (n, d) table values
+        w = np.repeat(np.asarray(segw, np.float32), np.diff(self.segs), axis=1)
+        return (cc * w).astype(np.float32)
+
+    @property
+    def stored_bytes_per_row(self) -> int:
+        """Each segment's codes packed at its width, one float32 norm, one byte
+        of energy fraction per segment."""
+        codes = sum(-(-n * int(b) // 8) for _, n, b, _ in self._segments)
+        return codes + 4 + self.nseg
+
+
+def _coder_for(pipeline):
+    if isinstance(pipeline, PCAMatryoshkaPipeline):
+        return _UniformCoder(pipeline)
+    if isinstance(pipeline, EigenweightedPipeline):
+        return _SegmentedCoder(pipeline)
+    raise TypeError(
+        "ADCIndex needs a PCAMatryoshkaPipeline or an EigenweightedPipeline, "
+        f"got {type(pipeline).__name__}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Chunks                                                                       #
+# --------------------------------------------------------------------------- #
+
+
+@dataclass
+class _Chunk:
+    codes: object  # BlockedCodes (kernel-scannable) or any (n, d) uint8 array-like
+    n: int
+
+    @property
+    def scannable(self) -> bool:
+        return isinstance(self.codes, BlockedCodes)
+
+
+class _ChunkedCodes:
+    """Read-only ``(N, d)`` uint8 view over several chunks (the legacy ``_codes``)."""
+
+    def __init__(self, chunks: list[_Chunk], dim: int):
+        self._chunks = chunks
+        self._offsets = np.cumsum([0] + [c.n for c in chunks]).astype(np.int64)
+        self.shape = (int(self._offsets[-1]), int(dim))
+        self.dtype = np.dtype(np.uint8)
+        self.ndim = 2
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def astype(self, dtype, copy: bool = True) -> np.ndarray:
+        return np.asarray(self).astype(dtype)
+
+    def _gather(self, rows: np.ndarray) -> np.ndarray:
+        rows = np.asarray(rows, dtype=np.int64)
+        n = self.shape[0]
+        rows = np.where(rows < 0, rows + n, rows)
+        if rows.size and (rows.min() < 0 or rows.max() >= n):
+            raise IndexError(f"row index out of range for {n} rows")
+        out = np.empty((len(rows), self.shape[1]), dtype=np.uint8)
+        which = np.searchsorted(self._offsets, rows, side="right") - 1
+        for c in np.unique(which):
+            sel = which == c
+            local = rows[sel] - self._offsets[c]
+            out[sel] = np.asarray(self._chunks[c].codes[local])
+        return out
+
+    def __getitem__(self, key) -> np.ndarray:
+        if isinstance(key, slice):
+            return self._gather(np.arange(*key.indices(self.shape[0])))
+        if isinstance(key, (int, np.integer)):
+            return self._gather(np.asarray([int(key)]))[0]
+        idx = np.asarray(key)
+        if idx.dtype == bool:
+            idx = np.flatnonzero(idx)
+        return self._gather(idx)
+
+    def __array__(self, dtype=None, copy=None) -> np.ndarray:
+        parts = [np.asarray(c.codes) for c in self._chunks]
+        out = (
+            np.concatenate(parts)
+            if parts
+            else np.empty((0, self.shape[1]), dtype=np.uint8)
+        )
+        return out if dtype is None else out.astype(dtype)
+
+
+class _Parts:
+    """A per-row float array kept as the parts ``add`` produced, concatenated lazily."""
+
+    def __init__(self):
+        self.parts: list[np.ndarray] = []
+        self._cat: np.ndarray | None = None
+
+    def append(self, a: np.ndarray) -> None:
+        self.parts.append(a)
+        self._cat = None
+
+    def set(self, a) -> None:
+        self.parts = [] if a is None else [np.asarray(a, dtype=np.float32)]
+        self._cat = None
+
+    @property
+    def array(self) -> np.ndarray | None:
+        if not self.parts:
+            return None
+        if self._cat is None:
+            self._cat = (
+                self.parts[0] if len(self.parts) == 1 else np.concatenate(self.parts)
+            )
+        return self._cat
+
+
+# --------------------------------------------------------------------------- #
+# The index                                                                    #
+# --------------------------------------------------------------------------- #
+
+
 class ADCIndex:
     """Compressed ADC search index built from a fitted PCA-Matryoshka pipeline.
+
+    Accepts a :class:`PCAMatryoshkaPipeline` (one width for every dim) or an
+    :class:`EigenweightedPipeline` (widths that follow the spectrum, scanned as
+    weighted segments; see :mod:`turboquant_pro.spectrum`). The segmented form
+    has no single centroid table, so the paths that reconstruct rows through
+    ``_cent`` (``TQEIndex``, ``ShardedIndex``, ``IVFIndex``) take the uniform
+    form only.
 
     Recommendation: build from an **unwhitened** PCA (``whiten=False``, the default).
     Whitening equalizes the PCA modes, which lets low-variance components inject
@@ -86,13 +349,14 @@ class ADCIndex:
             raise ValueError(f"metric must be 'cosine' or 'l2', got {metric!r}")
         self._metric = metric
         self._pca = pca
-        self._tq = pipeline.quantizer
-        self._cent = np.asarray(self._tq.centroids, dtype=np.float32)
+        self._coder = _coder_for(pipeline)
+        self._tq = getattr(pipeline, "quantizer", None)  # None when segmented
+        self._cent = self._coder.cent  # (S,) for a uniform pipeline, else None
         self._mean = np.asarray(pca._mean, dtype=np.float32)
         self._comp = np.asarray(pca._components, dtype=np.float32)  # (out, in)
         self._mp = (self._comp @ self._mean).astype(np.float32)  # (out,), un-rotated
         self._mp_rot = np.ascontiguousarray(
-            self._tq._rotate(self._mp[None, :])[0], dtype=np.float32
+            self._coder.rotate(self._mp[None, :])[0], dtype=np.float32
         )
         self._mean_sq = float(self._mean @ self._mean)
         # Whitening awareness. ``PCAMatryoshka.transform`` scales each component by
@@ -110,10 +374,16 @@ class ADCIndex:
         else:
             self._sqrt_eig = None
         self._kernel = _adc.load()
-        self._codes: np.ndarray | None = None
-        self._cnorm: np.ndarray | None = None
-        self._vrnorm: np.ndarray | None = None
+        self._chunks: list[_Chunk] = []
+        self._cnorm_parts = _Parts()
+        self._vrnorm_parts = _Parts()
+        self._segw_parts = _Parts()
+        self._freq = None
+        self._freq_key = None
 
+    # ------------------------------------------------------------------ #
+    # Storage                                                            #
+    # ------------------------------------------------------------------ #
     @property
     def uses_kernel(self) -> bool:
         """True if the compiled AVX2 kernel is in use (else numpy fallback)."""
@@ -121,25 +391,103 @@ class ADCIndex:
 
     @property
     def size(self) -> int:
-        return 0 if self._codes is None else len(self._codes)
+        return sum(c.n for c in self._chunks)
+
+    @property
+    def dim(self) -> int:
+        return self._coder.d
+
+    @property
+    def stored_bytes_per_row(self) -> int:
+        """Bytes a stored row costs on disk: packed codes, one float32 norm, and for
+        a segmented pipeline one byte of energy fraction per segment. The
+        accounting the public comparison uses (every per-vector scalar counted)."""
+        return int(self._coder.stored_bytes_per_row)
+
+    @property
+    def nbytes(self) -> int:
+        """Bytes the stored rows occupy in RAM (codes, norms, segment weights)."""
+        total = 0
+        for c in self._chunks:
+            total += getattr(c.codes, "nbytes", 0) or np.asarray(c.codes).nbytes
+        for p in (self._cnorm_parts, self._vrnorm_parts, self._segw_parts):
+            total += sum(int(a.nbytes) for a in p.parts)
+        return total
+
+    def _store(self, codes) -> _Chunk:
+        """Wrap codes for a chunk: blocked for the kernel when they fit in 4 bits and
+        live in RAM; a memory-mapped or packed store is kept as it is (numpy path)."""
+        if isinstance(codes, BlockedCodes):
+            return _Chunk(codes, len(codes))
+        if isinstance(codes, (PackedCodes, np.memmap)) or not self._coder.kernel_codes:
+            return _Chunk(codes, len(codes))
+        return _Chunk(BlockedCodes.from_codes(codes, self._kernel), len(codes))
+
+    @property
+    def _codes(self):
+        if not self._chunks:
+            return None
+        if len(self._chunks) == 1:
+            return self._chunks[0].codes
+        return _ChunkedCodes(self._chunks, self.dim)
+
+    @_codes.setter
+    def _codes(self, value) -> None:
+        self._chunks = [] if value is None else [self._store(value)]
+        self._freq_key = None
+
+    @property
+    def _cnorm(self):
+        return self._cnorm_parts.array
+
+    @_cnorm.setter
+    def _cnorm(self, value) -> None:
+        self._cnorm_parts.set(value)
+
+    @property
+    def _vrnorm(self):
+        return self._vrnorm_parts.array
+
+    @_vrnorm.setter
+    def _vrnorm(self, value) -> None:
+        self._vrnorm_parts.set(value)
+
+    @property
+    def _segw(self):
+        return self._segw_parts.array
+
+    @_segw.setter
+    def _segw(self, value) -> None:
+        self._segw_parts.set(value)
 
     def add(self, embeddings: np.ndarray) -> ADCIndex:
         """Compress ``embeddings`` (n, input_dim) and index them for fast search.
 
         Successive calls **accumulate**: later batches are appended to the index
         rather than replacing it, so ``index.add(a).add(b)`` holds both. Returned
-        search indices are positional into the concatenation order.
+        search indices are positional into the concatenation order. Each call
+        becomes one chunk, packed once into the kernel's layout.
         """
         x = np.asarray(embeddings, dtype=np.float32)
         xp = np.asarray(self._pca.transform(x), dtype=np.float32)
         cnorm = np.linalg.norm(xp, axis=1).astype(np.float32)
-        rotated = self._tq._rotate(xp / np.maximum(cnorm[:, None], 1e-30))
-        codes = np.searchsorted(self._tq.boundaries, rotated).astype(np.uint8)
-        cc = self._cent[codes]
+        codes, segw, cc = self._coder.encode(xp / np.maximum(cnorm[:, None], 1e-30))
+        vrnorm = self._recon_inverse_norm(cc, cnorm)
+        self._chunks.append(self._store(codes))
+        self._cnorm_parts.append(cnorm)
+        self._vrnorm_parts.append(vrnorm)
+        if segw is not None:
+            self._segw_parts.append(np.ascontiguousarray(segw, dtype=np.float32))
+        self._freq_key = None
+        return self
+
+    def _recon_inverse_norm(self, cc: np.ndarray, cnorm: np.ndarray) -> np.ndarray:
+        """``1 / ||recon||`` per row from the rotated reconstruction ``cc`` of its
+        direction and its norm."""
         if self._whiten:
             # Reconstruction lives in the un-whitened space: un-rotate the codes to
             # PCA coordinates, undo the 1/sqrt(eig) scale, then measure the norm.
-            uw = (self._tq._unrotate(cc) * self._sqrt_eig).astype(np.float32)
+            uw = (self._coder.unrotate(cc) * self._sqrt_eig).astype(np.float32)
             s2 = (uw * uw).sum(axis=1).astype(np.float32)
             m_n = (uw @ self._mp).astype(np.float32)
         else:
@@ -148,19 +496,71 @@ class ADCIndex:
             s2 = (cc * cc).sum(axis=1).astype(np.float32)
             m_n = (cc @ self._mp_rot).astype(np.float32)
         recon_n2 = cnorm**2 * s2 + 2.0 * cnorm * m_n + self._mean_sq
-        codes = np.ascontiguousarray(codes)
-        vrnorm = (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
-        if self._codes is None:
-            self._codes = codes
-            self._cnorm = cnorm
-            self._vrnorm = vrnorm
-        else:
-            # Append: build up the index across successive add() calls.
-            self._codes = np.ascontiguousarray(np.concatenate([self._codes, codes]))
-            self._cnorm = np.concatenate([self._cnorm, cnorm])
-            self._vrnorm = np.concatenate([self._vrnorm, vrnorm])
+        return (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
+
+    def _recon_inverse_norm_xp(self, xp_hat: np.ndarray) -> np.ndarray:
+        """``1 / ||recon||`` per row from a reconstruction given in PCA coordinates
+        (the residual-coded form ``centroid + rho * unrotate(cent[codes])``)."""
+        xp_hat = np.asarray(xp_hat, dtype=np.float32)
+        if self._whiten:
+            xp_hat = (xp_hat * self._sqrt_eig).astype(np.float32)
+        s2 = (xp_hat * xp_hat).sum(axis=1).astype(np.float32)
+        m_n = (xp_hat @ self._mp).astype(np.float32)
+        recon_n2 = s2 + 2.0 * m_n + self._mean_sq
+        return (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
+
+    def project(self, embeddings: np.ndarray) -> np.ndarray:
+        """PCA coordinates ``xp`` of ``embeddings``, what the codes describe."""
+        x = np.asarray(embeddings, dtype=np.float32)
+        return np.asarray(self._pca.transform(x), dtype=np.float32)
+
+    def encode_residuals(self, xp: np.ndarray, centroid: np.ndarray):
+        """Code ``xp - centroid`` (PCA coordinates) as direction codes plus norm.
+
+        Returns ``(codes, cnorm, vrnorm, segw)`` for :meth:`add_coded`: ``cnorm`` is
+        the residual's norm and ``vrnorm`` the inverse norm of the reconstruction
+        ``centroid + cnorm * unrotate(cent[codes])``. A chunk coded this way is
+        scanned with the per-(query, chunk) constant ``qbias + q_rot . rotate(c)``;
+        the lookup table is the same for every centroid, so residual coding costs
+        nothing at scan time.
+        """
+        xp = np.asarray(xp, dtype=np.float32)
+        c = np.asarray(centroid, dtype=np.float32).reshape(1, -1)
+        r = xp - c
+        rho = np.linalg.norm(r, axis=1).astype(np.float32)
+        codes, segw, cc = self._coder.encode(r / np.maximum(rho[:, None], 1e-30))
+        xp_hat = c + rho[:, None] * self._coder.unrotate(cc)
+        return codes, rho, self._recon_inverse_norm_xp(xp_hat), segw
+
+    def add_coded(
+        self,
+        codes: np.ndarray,
+        cnorm: np.ndarray,
+        vrnorm: np.ndarray,
+        segw: np.ndarray | None = None,
+    ) -> ADCIndex:
+        """Append rows already coded (by :meth:`encode_residuals` or by another
+        index built on the same pipeline) as one chunk. An empty batch still
+        adds a chunk, so chunk ids can stand for cells."""
+        codes = np.asarray(codes, dtype=np.uint8)
+        if codes.ndim != 2 or codes.shape[1] != self.dim:
+            raise ValueError(f"codes must be (n, {self.dim}), got {codes.shape}")
+        n = len(codes)
+        if len(cnorm) != n or len(vrnorm) != n:
+            raise ValueError("cnorm and vrnorm must have one entry per row")
+        if (segw is None) != (self._coder.nseg == 1):
+            raise ValueError("segment weights are required exactly when segmented")
+        self._chunks.append(self._store(codes))
+        self._cnorm_parts.append(np.ascontiguousarray(cnorm, dtype=np.float32))
+        self._vrnorm_parts.append(np.ascontiguousarray(vrnorm, dtype=np.float32))
+        if segw is not None:
+            self._segw_parts.append(np.ascontiguousarray(segw, dtype=np.float32))
+        self._freq_key = None
         return self
 
+    # ------------------------------------------------------------------ #
+    # Search                                                             #
+    # ------------------------------------------------------------------ #
     def _query_terms(self, queries: np.ndarray):
         """Per-query terms for the ADC sum.
 
@@ -177,9 +577,56 @@ class ADCIndex:
             # Match the un-whitened reconstruction: the DB codes carry the whitened
             # projection, so the query pairing must restore the sqrt(eig) factor.
             qt = qt * self._sqrt_eig
-        q_rot = np.ascontiguousarray(self._tq._rotate(qt), dtype=np.float32)
+        q_rot = np.ascontiguousarray(self._coder.rotate(qt), dtype=np.float32)
         qbias = np.ascontiguousarray(qn @ self._mean, dtype=np.float32)
         return q_rot, qbias
+
+    def _kernel_scan(self) -> bool:
+        """The compiled kernel scans this index: cosine, every chunk blocked."""
+        return (
+            self._kernel is not None
+            and self._metric == "cosine"
+            and hasattr(self._kernel, "search_chunks")
+            and all(c.scannable for c in self._chunks)
+        )
+
+    def _kernel_chunks(self):
+        blocks = [c.codes.blocked for c in self._chunks]
+        ns = np.asarray([c.n for c in self._chunks], dtype=np.int64)
+        offsets = np.concatenate([[0], np.cumsum(ns)[:-1]]).astype(np.int64)
+        return blocks, ns, offsets
+
+    def search_chunks(
+        self,
+        q_rot: np.ndarray,
+        probes: np.ndarray,
+        biases: np.ndarray,
+        k: int,
+        use_simd: bool = True,
+    ):
+        """Scan of the chunks ``probes[q]`` names for each query (``-1`` pads), with
+        the per-(query, chunk) constant ``biases``; the flat and IVF paths share
+        it. Returns ``(indices, scores)`` with indices positional in chunk order.
+        Uses the kernel when it can scan this index, else the numpy path."""
+        if not self._kernel_scan():
+            return self._search_chunks_numpy(q_rot, probes, biases, k)
+        blocks, ns, offsets = self._kernel_chunks()
+        return self._kernel.search_chunks(
+            blocks,
+            ns,
+            offsets,
+            np.ascontiguousarray(q_rot, dtype=np.float32),
+            self._coder.tables,
+            self._coder.nsym,
+            self._coder.segs,
+            self._cnorm,
+            self._vrnorm,
+            self._segw,
+            np.ascontiguousarray(probes, dtype=np.int32),
+            np.ascontiguousarray(biases, dtype=np.float32),
+            int(k),
+            bool(use_simd),
+        )
 
     def search(
         self,
@@ -200,33 +647,37 @@ class ADCIndex:
         extrapolates the rest from that prefix, and finishes only vectors whose
         upper bound can reach the top-k. Returned scores are exact; a true top-k
         vector can be pruned with a probability that shrinks as ``z`` grows. It
-        applies to the cosine metric with the kernel compiled and codes <= 4
-        bits; otherwise the unpruned path runs. The per-query survivor counts of
-        the last pruned search are kept in ``last_survivors``.
+        applies to the cosine metric with the kernel compiled, one chunk, and a
+        uniform quantizer of at most 4 bits; otherwise the unpruned path runs.
+        The per-query survivor counts of the last pruned search are kept in
+        ``last_survivors``.
         """
-        if self._codes is None:
+        if not self._chunks:
             raise RuntimeError("index is empty; call add() first")
         q_rot, qbias = self._query_terms(queries)
         kk = k * max(rerank, 1) if rerank else k
-        # The compiled kernel implements the cosine score only; l2 takes the
-        # numpy path, which is exact (and identical in ranking to the blocked
-        # and IVF paths, which share score_block).
-        # The kernel's pshufb tables hold 16 entries, so codes above 4 bits take the
-        # numpy path too.
-        if self._metric == "l2" or len(self._cent) > 16:
+        if not self._kernel_scan():
+            # The kernel implements the cosine score only; l2, codes above 4 bits
+            # and memory-mapped stores take the numpy path, which is exact (and
+            # identical in ranking to the blocked, IVF and sharded paths, which
+            # share score_block).
             idx, sc = self._search_numpy(q_rot, qbias, kk)
         elif (
             prune is not None
-            and self._kernel is not None
             and hasattr(self._kernel, "search_pruned")
-            and self._codes.shape[1] >= 2
+            and len(self._chunks) == 1
+            and self._coder.nseg == 1
+            and self.dim >= 2
         ):
-            d = self._codes.shape[1]
+            d = self.dim
             m = min(d - 1, max(1, round(prune[0] * d)))
+            chunk = self._chunks[0]
             idx, sc, self.last_survivors = self._kernel.search_pruned(
-                self._codes,
+                chunk.codes.blocked,
+                chunk.n,
                 q_rot,
-                self._cent,
+                self._coder.tables,
+                self._coder.nsym,
                 self._cnorm,
                 self._vrnorm,
                 qbias,
@@ -235,45 +686,98 @@ class ADCIndex:
                 m,
                 float(prune[1]),
             )
-        elif self._kernel is not None:
-            idx, sc = self._kernel.search(
-                self._codes,
-                q_rot,
-                self._cent,
-                self._cnorm,
-                self._vrnorm,
-                qbias,
-                kk,
-                True,
-            )
         else:
-            idx, sc = self._search_numpy(q_rot, qbias, kk)
+            nc = len(self._chunks)
+            probes = np.broadcast_to(np.arange(nc, dtype=np.int32), (len(q_rot), nc))
+            biases = np.broadcast_to(qbias[:, None], (len(q_rot), nc))
+            idx, sc = self.search_chunks(q_rot, probes, biases, kk)
         if rerank and originals is not None:
             return self._rerank(idx, queries, originals, k)
         return idx[:, :k], sc[:, :k]
 
     def code_frequencies(self) -> np.ndarray:
-        """(d', S) float32: how often each code occurs in each dim of the index."""
-        n_codes = len(self._cent)
-        key = (self.size, n_codes)
-        if getattr(self, "_freq_key", None) != key:
-            codes = np.asarray(self._codes)
-            freq = np.empty((codes.shape[1], n_codes), np.float32)
-            for j in range(codes.shape[1]):
-                freq[j] = np.bincount(codes[:, j], minlength=n_codes)[:n_codes]
-            self._freq = freq / max(len(codes), 1)
+        """(d', 16) float32: how often each symbol occurs in each dim of the index."""
+        key = (self.size, len(self._chunks))
+        if self._freq_key != key:
+            freq = np.zeros((self.dim, TABLE), dtype=np.float64)
+            for rows in self._iter_rows():
+                for j in range(self.dim):
+                    freq[j] += np.bincount(rows[:, j], minlength=TABLE)[:TABLE]
+            self._freq = (freq / max(self.size, 1)).astype(np.float32)
             self._freq_key = key
         return self._freq
 
+    def _iter_rows(self, block: int = 65536):
+        """Unpacked ``(rows, d)`` uint8 codes, chunk by chunk, in row blocks that
+        bound memory; yields ``(codes_block)`` in index order."""
+        for c in self._chunks:
+            for s in range(0, c.n, block):
+                yield np.asarray(c.codes[s : min(s + block, c.n)])
+
+    def _search_chunks_numpy(self, q_rot, probes, biases, k):
+        """Exact float scan of probed chunks, one query at a time."""
+        probes = np.asarray(probes, dtype=np.int64)
+        biases = np.asarray(biases, dtype=np.float32)
+        nq = len(q_rot)
+        offsets = np.concatenate([[0], np.cumsum([c.n for c in self._chunks])]).astype(
+            np.int64
+        )
+        segw = self._segw
+        cnorm, vrnorm = self._cnorm, self._vrnorm
+        out_ix = np.full((nq, k), -1, dtype=np.int64)
+        out_sc = np.full((nq, k), -1e30, dtype=np.float32)
+        for i in range(nq):
+            parts_ix, parts_sc = [], []
+            for p, c in enumerate(probes[i]):
+                if c < 0 or self._chunks[c].n == 0:
+                    continue
+                s, e = offsets[c], offsets[c + 1]
+                rows = np.asarray(self._chunks[c].codes[0 : e - s])
+                cc = self._coder.reconstruct(rows, None if segw is None else segw[s:e])
+                adc = q_rot[i][None, :] @ cc.T
+                sc = score_block(
+                    self._metric, adc, biases[i, p : p + 1], cnorm[s:e], vrnorm[s:e]
+                )[0]
+                parts_ix.append(np.arange(s, e, dtype=np.int64))
+                parts_sc.append(sc.astype(np.float32))
+            if not parts_ix:
+                continue
+            ix = np.concatenate(parts_ix)
+            sc = np.concatenate(parts_sc)
+            m = min(k, len(ix))
+            top = np.argpartition(-sc, m - 1)[:m]
+            top = top[np.argsort(-sc[top], kind="stable")]
+            out_ix[i, :m] = ix[top]
+            out_sc[i, :m] = sc[top]
+        return out_ix, out_sc
+
     def _search_numpy(self, q_rot, qbias, kk):
-        cc = self._cent[np.asarray(self._codes)]  # (N, d')
-        adc = q_rot @ cc.T  # (nq, N)
-        scores = score_block(self._metric, adc, qbias, self._cnorm, self._vrnorm)
-        idx = np.argpartition(-scores, min(kk, scores.shape[1] - 1), axis=1)[:, :kk]
-        srt = np.take_along_axis(scores, idx, axis=1)
-        order = np.argsort(-srt, axis=1)
-        idx = np.take_along_axis(idx, order, axis=1)
-        return idx.astype(np.int64), np.take_along_axis(scores, idx, axis=1)
+        """Exact float scan over every chunk, blockwise, with a running top-``kk``."""
+        nq = len(q_rot)
+        segw = self._segw
+        cnorm, vrnorm = self._cnorm, self._vrnorm
+        kk = min(kk, self.size)
+        best_sc = np.full((nq, 0), -np.inf, dtype=np.float32)
+        best_ix = np.full((nq, 0), -1, dtype=np.int64)
+        s = 0
+        for rows in self._iter_rows():
+            e = s + len(rows)
+            cc = self._coder.reconstruct(rows, None if segw is None else segw[s:e])
+            adc = q_rot @ cc.T
+            sc = score_block(self._metric, adc, qbias, cnorm[s:e], vrnorm[s:e])
+            ix = np.broadcast_to(np.arange(s, e, dtype=np.int64), (nq, e - s))
+            csc = np.concatenate([best_sc, sc.astype(np.float32)], axis=1)
+            cix = np.concatenate([best_ix, ix], axis=1)
+            keep = min(kk, csc.shape[1])
+            part = np.argpartition(-csc, keep - 1, axis=1)[:, :keep]
+            best_sc = np.take_along_axis(csc, part, axis=1)
+            best_ix = np.take_along_axis(cix, part, axis=1)
+            s = e
+        order = np.argsort(-best_sc, axis=1, kind="stable")
+        return (
+            np.take_along_axis(best_ix, order, axis=1),
+            np.take_along_axis(best_sc, order, axis=1),
+        )
 
     def _rerank(self, cand, queries, originals, k):
         q = np.asarray(queries, dtype=np.float32)

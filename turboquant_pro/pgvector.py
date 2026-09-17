@@ -106,6 +106,7 @@ def _fwht(a: np.ndarray) -> np.ndarray:
 # Lloyd-Max codebook centroids for standard normal distribution
 # (same as core.py but included here for standalone usage)
 _CODEBOOKS: dict[int, np.ndarray] = {
+    1: np.array([-0.7979, 0.7979]),  # sqrt(2/pi): the sign, at the half-normal mean
     2: np.array([-1.510, -0.453, 0.453, 1.510]),
     3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
     4: np.array(

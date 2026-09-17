@@ -536,7 +536,7 @@ class PCAMatryoshka:
         """Create a full PCA + TurboQuant compression pipeline.
 
         Args:
-            bits: Quantization bit width (2, 3, or 4).
+            bits: Quantization bit width (1 to 4).
             seed: Random seed for the TurboQuant rotation matrix.
             rotation: Rotation family passed to :class:`TurboQuantPGVector`.
                 ``"qr"`` (default) is the exact historical rotation; ``"hadamard"``
@@ -604,56 +604,64 @@ class PCAMatryoshka:
 
         return EigenweightedPipeline(pca=self, segments=segments)
 
-    def _auto_bit_schedule(self, avg_bits: float) -> list[tuple[int, int]]:
-        """Compute bit allocation from eigenvalue cumulative variance.
+    def _auto_bit_schedule(
+        self, avg_bits: float, choices: tuple[int, ...] = (2, 3, 4)
+    ) -> list[tuple[int, int]]:
+        """Bit allocation from the eigenvalue spectrum at ``avg_bits`` per dim.
 
-        Uses the PCA eigenvalue spectrum to determine where to place
-        bit-width boundaries.  Dimensions explaining the top portion
-        of variance get 4-bit, the middle gets 3-bit, and the tail
-        gets 2-bit.  The split points are chosen so that the weighted
-        average is approximately *avg_bits*.
-
-        The eigenvalue-driven boundaries adapt to the actual data
-        distribution rather than using fixed quartiles.
+        :func:`turboquant_pro.spectrum.allocate_bits` spends the budget
+        ``round(avg_bits * output_dim)`` one bit at a time where it buys the
+        largest drop in ``sum_j lambda_j D(b_j)``, ``D`` the Lloyd-Max distortion
+        at each width. On a sorted spectrum the widths come out non-increasing,
+        so the schedule is a short list of contiguous segments. The widths are
+        drawn from ``choices`` (2 to 4 bits by default, the historical range).
         """
+        from .spectrum import allocate_bits, segments
+
         d = self.output_dim
-        eigs = self._eigenvalues[:d]
-        total_var = float(eigs.sum())
-
-        if total_var < 1e-30:
+        eigs = np.asarray(self._eigenvalues[:d], dtype=np.float64)
+        levels = sorted({int(c) for c in choices})
+        if float(eigs.sum()) < 1e-30:
             # Degenerate case: uniform allocation
-            return [(d, max(2, min(4, round(avg_bits))))]
+            b = int(min(levels, key=lambda c: abs(c - avg_bits)))
+            return [(d, b)]
+        budget = int(round(avg_bits * d))
+        budget = min(max(budget, levels[0] * d), levels[-1] * d)
+        bits = allocate_bits(eigs, budget, tuple(levels))
+        return segments(bits)
 
-        cumvar = np.cumsum(eigs) / total_var
+    def with_spectrum_quantizer(
+        self,
+        budget_bytes: int | None = None,
+        avg_bits: float | None = None,
+        choices: tuple[int, ...] = (1, 2, 3, 4),
+        seed: int = 42,
+    ) -> EigenweightedPipeline:
+        """An :class:`EigenweightedPipeline` whose widths follow the spectrum.
 
-        if avg_bits <= 2.5:
-            # Aggressive: 3-bit on dims explaining first 50% variance,
-            # 2-bit on the rest.
-            n_high = int(np.searchsorted(cumvar, 0.50)) + 1
-            n_high = max(1, min(n_high, d - 1))
-            return [(n_high, 3), (d - n_high, 2)]
-        elif avg_bits <= 3.5:
-            # Balanced: 4-bit on first 60% variance, 3-bit on next 30%,
-            # 2-bit on final 10%.
-            n_4bit = int(np.searchsorted(cumvar, 0.60)) + 1
-            n_4bit = max(1, min(n_4bit, d - 2))
-            n_4_3 = int(np.searchsorted(cumvar, 0.90)) + 1
-            n_4_3 = max(n_4bit + 1, min(n_4_3, d - 1))
-            n_3bit = n_4_3 - n_4bit
-            n_2bit = d - n_4bit - n_3bit
-            schedule = []
-            if n_4bit > 0:
-                schedule.append((n_4bit, 4))
-            if n_3bit > 0:
-                schedule.append((n_3bit, 3))
-            if n_2bit > 0:
-                schedule.append((n_2bit, 2))
-            return schedule
+        Give either ``budget_bytes`` (stored bytes per vector, counting the
+        packed codes, one float32 norm and one byte of energy fraction per
+        segment, the accounting :meth:`ADCIndex.stored_bytes_per_row` reports)
+        or ``avg_bits`` per retained dimension. Widths come from ``choices``;
+        every retained dimension keeps at least the smallest choice, so drop
+        dimensions by choosing ``output_dim``, not by allocating 0 bits.
+        """
+        from .spectrum import allocate_bits, allocate_for_bytes, segments
+
+        self._check_fitted()
+        levels = tuple(sorted({int(c) for c in choices}))
+        if levels[0] < 1:
+            raise ValueError("choices must be at least 1 bit; truncate with output_dim")
+        if (budget_bytes is None) == (avg_bits is None):
+            raise ValueError("give exactly one of budget_bytes or avg_bits")
+        d = self.output_dim
+        eigs = np.asarray(self._eigenvalues[:d], dtype=np.float64)
+        if budget_bytes is not None:
+            bits = allocate_for_bytes(eigs, int(budget_bytes), levels)
         else:
-            # Conservative: 4-bit on first 80% variance, 3-bit on rest.
-            n_high = int(np.searchsorted(cumvar, 0.80)) + 1
-            n_high = max(1, min(n_high, d - 1))
-            return [(n_high, 4), (d - n_high, 3)]
+            budget = min(max(int(round(avg_bits * d)), levels[0] * d), levels[-1] * d)
+            bits = allocate_bits(eigs, budget, levels)
+        return self.with_weighted_quantizer(bit_schedule=segments(bits), seed=seed)
 
     # ------------------------------------------------------------------ #
     # Diagnostics                                                         #

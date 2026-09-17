@@ -61,6 +61,46 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
   against the RaBitQ campaign grid. Until that last one runs this is a working
   control plane, not a validated one — see `docs/DESIGN_planner.md` §2.9.
 
+### 2026-09-17 — scan kernel v3: codes packed once, scanned in chunks; bits that follow the spectrum
+- **`ADCIndex` keeps its codes in the kernel's own blocked layout**
+  (`packed_codes.BlockedCodes`: 32-row blocks, two 4-bit codes per byte), packed
+  once at `add()` and never repacked at search. v2 held one byte per code and
+  rebuilt the blocked copy inside every `search()` call. Each `add()` batch is a
+  **chunk**, scanned in place by one kernel entry point, `search_chunks`, that
+  takes the chunks each query probes and a per-(query, chunk) constant, so an
+  IVF cell is the same object with a centroid (Phase 4 of
+  `docs/PLAN_scan_v3.md`). `_codes` stays readable as an `(N, d)` uint8 array
+  (row gather, slices, `np.asarray`, `astype`), so `TQEIndex`, `ShardedIndex`
+  and `IVFIndex` are unchanged. Measured on Atlas, wiki1024 rows 0 to 1M at
+  d512 / 3 bits, 1,000 queries, 8 threads: index bytes per row 520 -> 264,
+  build 34.0 -> 28.1 s, search 18.9 -> 16.0 ms per query, top-10 identical on
+  every query. The v1/v2 `search(codes, ...)` entry point remains for callers
+  who hold plain codes; `search_pruned` takes a blocked chunk.
+- **A symbol table per dim, and dims grouped into weighted segments.** The
+  kernel's lookup table was always per dim; the centroid table it was built
+  from was not. `search_chunks` takes `(d, 16)` tables with a per-dim symbol
+  count, dim offsets of contiguous segments, and per-row segment weights, so
+  dims quantized at different widths scan in one pass. With one segment the
+  arithmetic is the v2 arithmetic to the bit; `tests/test_adc_kernel.py`
+  replays it in integers for both.
+- **`turboquant_pro.spectrum`: integer bit allocation over the PCA spectrum.**
+  `allocate_bits(eigenvalues, budget)` spends bits one at a time where they
+  buy the largest drop in `sum_j lambda_j D(b_j)`, `D` the Lloyd-Max distortion
+  at each width (0 bits drops the dim). On a sorted spectrum the widths are
+  monotone, so the answer is a short list of contiguous segments;
+  `plan_for_bytes` turns a byte budget into `(output_dim, schedule)`.
+  `PCAMatryoshka._auto_bit_schedule` now uses it (widths 2 to 4, as before)
+  instead of fixed variance cut points, and `with_spectrum_quantizer` builds
+  an `EigenweightedPipeline` from a byte budget. **`ADCIndex` accepts an
+  `EigenweightedPipeline`**: each segment has its own rotation and table, and
+  the segment's energy fraction is stored per row as one byte and applied as
+  the kernel's segment weight. `ADCIndex.stored_bytes_per_row` reports the
+  accounting (packed codes + 4-byte norm + 1 byte per segment). A 1-bit
+  Lloyd-Max codebook (+-0.7979) joins the embedding quantizer's tables. Whether
+  the allocation beats uniform widths at matched bytes on real data is the
+  preregistered question of `docs/PREREG_spectrum_bits.md`; an exploration on
+  synthetic anisotropic data before registration is recorded there.
+
 ### 2026-09-15 — the ADC fast-scan kernel wrapped its sums past 257 dims (fixed, `3d96506`)
 - **Defect.** The optional AVX2 kernel (`turboquant_pro/_adc/adc_scan.cpp`,
   1.1.0 onward) accumulated the per-dim uint8 lookups of a query's table in
