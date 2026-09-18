@@ -574,19 +574,41 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         doc["environment"] = _certify_environment()
     if getattr(args, "limitation", None):
         doc["limitations"] = list(args.limitation)
+    contract = None
     if getattr(args, "observer", None):
         contract = _load_observer_or_none(args.observer, "certify")
         if contract is None:
             return 2
         doc["observer"] = contract.reference()
+    operator_out: dict = {}
     if getattr(args, "reference", None):
         try:
-            doc["reference"] = _certify_reference(args, orig, recon)
+            doc["reference"] = _certify_reference(args, orig, recon, operator_out)
         except Exception as e:  # noqa: BLE001 - a bad provider must not
             # silently drop the section, or the certificate would look like
             # one that was never asked for a reference
             print(f"--reference failed: {e}", file=sys.stderr)
             return 2
+    if getattr(args, "validity", False) or contract is not None or operator_out:
+        # what the certificate depends on, recorded so `tqp verify` can later
+        # find it no longer applicable (docs/DESIGN_certificate_expiry.md)
+        from turboquant_pro.validity import validity_section
+
+        operator = operator_out.get("operator")
+        if operator is None and contract is not None:
+            from turboquant_pro.refinement import observer_operator
+
+            try:
+                operator = observer_operator(contract, orig)
+            except Exception as e:  # noqa: BLE001
+                print(f"certify: observer operator failed: {e}", file=sys.stderr)
+                return 2
+        doc["validity"] = validity_section(
+            observer_sha256=contract.digest() if contract is not None else None,
+            reference=doc.get("reference"),
+            operator=operator,
+            sample=orig,
+        )
 
     if getattr(args, "html", None):
         try:
@@ -676,6 +698,14 @@ def _add_certify_parser(sub: argparse._SubParsersAction) -> None:
         help="observer contract (.tqo) this certificate is issued for; the "
         "certificate records its name and content hash (additive section)",
     )
+    ce.add_argument(
+        "--validity",
+        action="store_true",
+        help="record what the certificate depends on (a sketch of the reference "
+        "operator, the certified sample's moments, the thresholds) so `tqp "
+        "verify --data` can later find it no longer applicable; implied by "
+        "--observer and --reference",
+    )
     ce.set_defaults(func=_cmd_certify)
 
 
@@ -709,6 +739,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         recompute is None or recompute.get("skipped") or recompute.get("match") is True
     )
     observer_ok = True
+    contract = None
     if getattr(args, "observer", None):
         contract = _load_observer_or_none(args.observer, "verify")
         if contract is None:
@@ -731,6 +762,29 @@ def _cmd_verify(args: argparse.Namespace) -> int:
             ),
         }
     verified = (not problems) and match_ok and observer_ok
+
+    # is the certificate still applicable: the observer's read geometry and
+    # the data's coverage against what it recorded at issue
+    from turboquant_pro.validity import check_validity, validity_summary
+
+    data = queries = None
+    if getattr(args, "data", None):
+        data = _load_npy(args.data, "data")
+        if getattr(args, "queries", None):
+            queries = _load_npy(args.queries, "queries")
+    inputs_ok = None
+    if recompute is not None and not recompute.get("skipped"):
+        inputs_ok = bool(recompute.get("hashes_ok"))
+    try:
+        validity = check_validity(
+            doc, contract=contract, data=data, queries=queries, inputs_ok=inputs_ok
+        )
+    except Exception as e:  # noqa: BLE001 - a check that cannot run is
+        # reported, not swallowed into VALID
+        print(f"verify: validity check failed: {e}", file=sys.stderr)
+        return 2
+    applicable = bool(validity["applicable"])
+
     result = {
         "schema": "turboquant-pro/verification",
         "schema_version": 1,
@@ -743,10 +797,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         },
         "checks": checks,
         "verified": verified,
+        "validity": validity,
+        "applicable": applicable,
     }
-    if not _emit_doc(result, args.out, args.format, _verify_summary(result)):
+    summary = _verify_summary(result) + "\n" + validity_summary(validity)
+    if not _emit_doc(result, args.out, args.format, summary):
         return 2
-    return 0 if verified else 1
+    return 0 if (verified and applicable) else 1
 
 
 def _add_verify_parser(sub: argparse._SubParsersAction) -> None:
@@ -776,6 +833,18 @@ def _add_verify_parser(sub: argparse._SubParsersAction) -> None:
         help="observer contract (.tqo) the certificate must have been issued "
         "for; verification fails when the certificate names no observer or "
         "a different content hash",
+    )
+    vf.add_argument(
+        "--data",
+        metavar="PATH",
+        help=".npy sample of the current serving distribution: checks the "
+        "observer's read geometry and the data's coverage against what the "
+        "certificate recorded at issue (its validity section)",
+    )
+    vf.add_argument(
+        "--queries",
+        metavar="PATH",
+        help=".npy query sample, for rebuilding a retrieval consumer's operator",
     )
     vf.add_argument("--out", help="write the verification report here")
     vf.add_argument(

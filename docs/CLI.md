@@ -129,7 +129,7 @@ turboquant_quality_mean_cosine 0.9999
 turboquant_quality_is_healthy 1
 ```
 
-### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--observer CONTRACT] [--html FILE] [--out FILE] [--format json|text]`
+### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--observer CONTRACT] [--validity] [--html FILE] [--out FILE] [--format json|text]`
 Emits a **distribution-free rank certificate** (`rank_certificate`) as a
 machine-readable `certificate.json`. Given original and reconstructed embedding
 `.npy` matrices (same row order), it samples anchor pairs, measures the robust
@@ -166,9 +166,16 @@ A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
 is itself the signal: single-stage rank fidelity can't be certified, so exact
 reranking is mandatory.
 
-### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--observer CONTRACT] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
+### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--observer CONTRACT] [--data PATH [--queries PATH]] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
 Checks a `certificate.json` **that someone else emitted** — the trust primitive
-`certify` was missing. Two layers:
+`certify` was missing. Two layers, and a third: with `--data` (a sample of the
+current serving distribution, `--queries` for a retrieval consumer) the
+certificate's `validity` section is checked and the report carries
+`applicable` beside `verified`: VALID, STALE with a reason (consumer read
+geometry changed, data outside calibration coverage, observer contract
+changed, certified inputs changed) and an action (REPLAN or RECERTIFY), or
+UNCHECKED. A STALE certificate is not false; it is no longer applicable, and
+the exit code is 1. Design: [`DESIGN_certificate_expiry.md`](DESIGN_certificate_expiry.md).
 
 - **Schema / self-consistency (always):** the schema and version are recognized,
   the required fields are present, `passed` is a boolean, and the recorded rank

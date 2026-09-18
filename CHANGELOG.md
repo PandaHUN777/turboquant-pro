@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### 2026-09-18 — certificates expire (issue #177, phase 1)
+- **`turboquant_pro.validity`** and the certificate's additive **`validity`**
+  section (`tqp certify --validity`, implied by `--observer` and
+  `--reference`): what the certificate depends on, recorded at issue. The
+  observer and reference it was issued for, a sketch of the reference
+  operator (its top eigenvectors and the trace they carry), the certified
+  sample's per-channel moments, and the thresholds. **`tqp verify --data
+  SAMPLE [--queries Q]`** rebuilds the observer's operator on the sample and
+  measures its overlap with the certified read subspace, and the sample's
+  divergence from the recorded moments; the report gains `applicable` beside
+  `verified` and a status: VALID, STALE with a reason and an action (REPLAN
+  when the observer changed, RECERTIFY when the data or inputs did), or
+  UNCHECKED. A flat operator's sketch carries little of its trace and the
+  overlap check says so instead of testing arbitrary directions. Strata
+  coverage and the monitor are phase 2 (`docs/DESIGN_certificate_expiry.md`).
+
 ### 2026-09-18 — the successive-refinement report (issue #174, phase 1)
 - **`turboquant_pro.refinement`** and **`tqp plan refine`** — can two observers
   share a progressive code? From a corpus sample and two contracts, each
