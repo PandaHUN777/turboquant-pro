@@ -206,3 +206,18 @@ is.
   class metered under the guard. Queued on Atlas behind the pools already
   running: the 81, then the metering wave, then the nine. Scoring:
   `score.py --supplementary tq_ivf`.
+- 2026-09-18 09:20 UTC: interim scoring of the residual-IVF family on 81 of
+  its 90 cells (the nine deep-image cells were still running), stated as
+  returned, not as a result. Family verdicts under the section 4 rules: C1
+  MIXED (20 wins, 65 ties, 7 losses of 92 comparisons), C2 HOLDS (7 wins, 27
+  ties, 4 losses of 38); the registered family at the same moment: C1 MIXED
+  (15, 47, 10 of 72), C2 MIXED (6, 12, 4 of 22) now that the 3-large arm's
+  baselines have filled in. Against its registered twin, residual coding
+  raises single-pass recall@10 by 0.04 to 0.08 on GloVe and 0.01 to 0.03 on
+  NYTimes, and changes it by less than 0.01 on the three 1024-d and 1536-d
+  arms, where 4,096 to 16,384 centroids do not shorten a residual much. The
+  3-large full-dimension twins are not a residual-coding comparison: the
+  registered cells ran the wrapping kernel. Every rerank x5 recall is at or
+  above the registered one. The first pass on the exempt arms was killed at
+  their fixed 2 GiB by an unbounded assignment block (fixed in `5d06ae8`);
+  23 parked cells then ran clean on the bounded commit.
