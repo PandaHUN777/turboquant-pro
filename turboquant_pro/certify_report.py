@@ -59,7 +59,7 @@ def _certify_summary(doc: dict) -> str:
     return "\n".join(lines)
 
 
-def _certify_reference(args, orig, recon) -> dict:
+def _certify_reference(args, orig, recon, operator_out: dict | None = None) -> dict:
     """Build the certificate's ``reference`` section.
 
     The point of the section is that a consumer-relative number is not
@@ -97,6 +97,8 @@ def _certify_reference(args, orig, recon) -> dict:
     trace = float(_np.trace(P))
     s2 = float((P**2).sum())
     eff = (trace * trace / s2) if s2 > 0 else None
+    if operator_out is not None:
+        operator_out["operator"] = P
 
     return {
         "provider": spec.name,

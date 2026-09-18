@@ -177,6 +177,50 @@
         }
       }
     },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional: what the certificate depends on, recorded at issue so `tqp verify --data` can later find it no longer applicable (docs/DESIGN_certificate_expiry.md).",
+      "required": ["issued_for", "thresholds"],
+      "properties": {
+        "issued_for": {
+          "type": "object",
+          "properties": {
+            "observer_sha256": {"type": ["string", "null"]},
+            "reference_provider": {"type": ["string", "null"]},
+            "operator_sha256": {"type": ["string", "null"]}
+          }
+        },
+        "thresholds": {
+          "type": "object",
+          "properties": {
+            "min_operator_overlap": {"type": "number"},
+            "max_coverage_divergence": {"type": "number"}
+          }
+        },
+        "operator_sketch": {
+          "type": ["object", "null"],
+          "properties": {
+            "dim": {"type": "integer"},
+            "rank": {"type": "integer"},
+            "effective_rank": {"type": "number"},
+            "trace": {"type": "number"},
+            "trace_fraction": {"type": "number"},
+            "eigenvalues": {"type": "array", "items": {"type": "number"}},
+            "basis": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}}
+          }
+        },
+        "coverage_sketch": {
+          "type": ["object", "null"],
+          "properties": {
+            "rows": {"type": "integer"},
+            "dim": {"type": "integer"},
+            "mean": {"type": "array", "items": {"type": "number"}},
+            "variance": {"type": "array", "items": {"type": "number"}}
+          }
+        }
+      }
+    },
     "observer": {
       "type": "object",
       "additionalProperties": false,
