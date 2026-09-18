@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### 2026-09-18 — the cross-observer compatibility matrix (issue #179)
+- **`turboquant_pro.refinement.compatibility_matrix`** and **`tqp plan compat`**
+  — is a code built for one reader safe for the others? For each observer it
+  allocates the code that observer would choose at a common byte budget, then
+  reads that code with every observer's operator and reports the reader's
+  distortion and the ratio against its own code. A pair is safe under a stated
+  1.25, and the command exits 1 when any pair is not, so it gates. Readers on
+  disjoint subspaces are unsafe both ways; a code allocated against a reader
+  that reads everything serves a narrower reader safely while the reverse does
+  not, which is the asymmetry a single-number quality of a code cannot show.
+
 ### 2026-09-18 — `tqp feasibility`: should this be compressed at all (issue #176, phase 1)
 - **`turboquant_pro.feasibility`** and **`tqp feasibility`** — the questions
   that come before *which codec*, from one pass over a sample. Through a
