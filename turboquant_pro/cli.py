@@ -1233,6 +1233,70 @@ def _cmd_observer_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_observer_learn(args: argparse.Namespace) -> int:
+    import json
+    import os
+
+    from turboquant_pro.observer import save_contract
+    from turboquant_pro.workload import learn_contract, read_trace, summarize
+
+    try:
+        with open(args.trace, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError as e:
+        print(f"observer learn: cannot read {args.trace!r}: {e}", file=sys.stderr)
+        return 2
+    records, bad = read_trace(lines)
+    summary = summarize(
+        records, lines=len(lines), unparseable=bad, min_count=args.min_count
+    )
+    print(summary.explain(), file=sys.stderr)
+    if args.summary:
+        try:
+            with open(args.summary, "w", encoding="utf-8") as f:
+                json.dump(summary.as_dict(), f, indent=2)
+            print(f"wrote {args.summary}", file=sys.stderr)
+        except OSError as e:
+            print(
+                f"observer learn: cannot write {args.summary!r}: {e}", file=sys.stderr
+            )
+            return 2
+    budget = {}
+    if args.max_bytes_per_vector is not None:
+        budget["max_bytes_per_vector"] = args.max_bytes_per_vector
+    requirements = {}
+    if args.floor is not None:
+        requirements["floor"] = {"minimum": args.floor, "confidence": 0.95}
+    try:
+        contract = learn_contract(
+            summary,
+            observer=args.name,
+            target=args.target,
+            requirements=requirements,
+            budget=budget,
+        )
+    except ValueError as e:
+        print(f"observer learn: {e}", file=sys.stderr)
+        return 1
+    problems = contract.validate()
+    if problems:
+        print(
+            "observer learn: the learned contract does not validate:", file=sys.stderr
+        )
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+    if os.path.exists(args.out) and not args.force:
+        print(
+            f"observer learn: {args.out!r} exists; pass --force to overwrite",
+            file=sys.stderr,
+        )
+        return 2
+    fmt = save_contract(contract, args.out)
+    print(f"wrote {args.out} ({fmt}); sha256 {contract.digest()}")
+    return 0
+
+
 def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
     ob = sub.add_parser(
         "observer",
@@ -1285,6 +1349,39 @@ def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
     )
     oi.add_argument("--force", action="store_true")
     oi.set_defaults(func=_cmd_observer_init)
+
+    ol = obsub.add_parser(
+        "learn",
+        help="write a contract from a workload trace, instead of asking",
+        description=(
+            "Reads a JSON Lines trace of requests and writes the contract the "
+            "traffic performed: consumers weighted by frequency, with the "
+            "sample's size and span recorded in the contract's source block. A "
+            "reader seen fewer than --min-count times is abstained on rather "
+            "than weighted, and a metric the registry does not know is reported "
+            "by name, never mapped onto a neighbour. The summary goes to stderr "
+            "so the contract can be piped."
+        ),
+    )
+    ol.add_argument("trace", help="JSON Lines trace, one request per line")
+    ol.add_argument("--name", required=True, help="observer name for the contract")
+    ol.add_argument("--out", required=True, help="path to write (.tqo YAML, or .json)")
+    ol.add_argument(
+        "--min-count",
+        type=int,
+        default=20,
+        help="requests a reader needs before it is weighted (default 20)",
+    )
+    ol.add_argument(
+        "--target",
+        default="embedding",
+        choices=["embedding", "kv_key", "kv_value", "weight"],
+    )
+    ol.add_argument("--floor", type=float, default=None, help="recall floor to declare")
+    ol.add_argument("--max-bytes-per-vector", type=float, default=None)
+    ol.add_argument("--summary", help="write the workload summary JSON here")
+    ol.add_argument("--force", action="store_true")
+    ol.set_defaults(func=_cmd_observer_learn)
 
 
 def _cmd_feasibility(args: argparse.Namespace) -> int:

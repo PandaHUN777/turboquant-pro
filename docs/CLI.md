@@ -348,7 +348,7 @@ ABSTAIN. A recall target is not accepted: it is not convertible to a
 distortion by any distribution-free relation. Design:
 [`DESIGN_feasibility.md`](DESIGN_feasibility.md).
 
-### `tqp observer <validate|show|hash|init>`
+### `tqp observer <validate|show|hash|init|learn>`
 Observer contracts (`turboquant_pro.observer`, profile `tqp-observer/1`): a
 YAML or JSON file, by convention `.tqo`, that says who reads a representation
 (registered consumer metrics with weights, a `read_operator` consumer naming a
@@ -358,8 +358,23 @@ minimum), budget and fallback. It is content-addressed: `hash` prints the
 sha256 of the canonical form, which key order, whitespace and the file format
 do not change. `validate` checks the schema and then the consumer and
 read-operator registries and exits 1 naming each problem; `show` prints it for
-a person or `--format json`; `init --name N --out FILE` writes a one-consumer
-retrieval contract to edit.
+a person or `--format json`; retrieval contract to edit.
+
+`learn TRACE --name N --out FILE [--min-count 20] [--summary S.json]` writes
+the contract the traffic performed instead of the one someone remembers
+(issue #180). The trace is JSON Lines, one request per line, and the reader is
+liberal about spelling because traces are written by whatever was already
+logging. Consumers are weighted by frequency, and a configuration is part of a
+reader's identity, so `topk_cosine` at `k=10` and at `k=50` are two readers.
+Three things keep it evidence rather than a guess: a reader seen fewer than
+`--min-count` times is **abstained** on, listed with its count rather than
+dropped; a metric the consumer registry does not know is reported by name and
+**never mapped** onto a neighbour; and the contract's `source` block records
+the request count, the timestamp span, and the share of parsed traffic the
+retained readers carry, so a contract learned from one hour is not mistaken
+for one learned from a month. The summary goes to stderr so the contract can
+be piped. Exits 1 when nothing clears the threshold, rather than inventing a
+contract.
 
 The contract is what the other commands take as `--observer`: `tqp plan run`
 reads its target, primary consumer (largest weight), floor and budget and
