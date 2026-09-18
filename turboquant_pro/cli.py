@@ -1351,6 +1351,71 @@ def _cmd_plan_run(args: argparse.Namespace) -> int:
     return 1 if plan.selected_codec == ABSTAIN else 0
 
 
+def _cmd_plan_refine(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.refinement import (
+        ObserverGeometry,
+        observer_operator,
+        refinement_report,
+    )
+
+    if len(args.observer) != 2:
+        print(
+            "plan refine: give exactly two --observer contracts "
+            f"(got {len(args.observer)})",
+            file=sys.stderr,
+        )
+        return 2
+    contracts = []
+    for path in args.observer:
+        c = _load_observer_or_none(path, "plan refine")
+        if c is None:
+            return 2
+        if not c.budget.get("max_bytes_per_vector"):
+            print(
+                f"plan refine: contract {path!r} ({c.observer}) has no "
+                "budget.max_bytes_per_vector; the refinement is planned at each "
+                "observer's byte budget",
+                file=sys.stderr,
+            )
+            return 2
+        contracts.append(c)
+    data = _load_npy(args.artifact, "artifact")
+    x = np.asarray(data, dtype=np.float32).reshape(-1, np.shape(data)[-1])
+    if args.sample and x.shape[0] > args.sample:
+        rng = np.random.default_rng(args.seed)
+        x = x[rng.choice(x.shape[0], args.sample, replace=False)]
+    queries = _load_npy(args.queries, "queries") if args.queries else None
+    geoms = []
+    for c in contracts:
+        try:
+            P = observer_operator(c, x, queries=queries)
+        except Exception as e:  # noqa: BLE001 - a provider that cannot build
+            # its operator is a reason to stop, not to substitute identity
+            print(f"plan refine: observer {c.observer!r}: {e}", file=sys.stderr)
+            return 2
+        geoms.append(
+            ObserverGeometry(
+                c.observer,
+                P,
+                float(c.budget["max_bytes_per_vector"]),
+                meta=c.reference(),
+            )
+        )
+    report = refinement_report(x, geoms[0], geoms[1], tax_threshold=args.tax_threshold)
+    doc = report.as_dict()
+    doc["observers"] = [g.meta for g in geoms]
+    doc["artifact"] = {
+        "path": args.artifact,
+        "rows_used": int(x.shape[0]),
+        "dim": int(x.shape[1]),
+    }
+    if not _emit_doc(doc, args.out, args.format, report.explain()):
+        return 2
+    return 0
+
+
 def _cmd_plan_explain(args: argparse.Namespace) -> int:
     import json
 
@@ -1500,6 +1565,52 @@ def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
         "--format", choices=["json", "text"], default="text", help="stdout format"
     )
     pr.set_defaults(func=_cmd_plan_run)
+
+    rf = pnsub.add_parser(
+        "refine",
+        help="successive refinement: can two observers share a progressive code?",
+        description=(
+            "Reads two observer contracts and a corpus sample, builds each "
+            "observer's read operator, and predicts from the Lloyd-Max distortion "
+            "table whether a base code for the smaller budget can be refined into "
+            "one for the larger without paying twice: the refinement tax against "
+            "one flat code, the overlap of the two operators, and a verdict. "
+            "Nothing is built; the layered container is a later phase (#174)."
+        ),
+    )
+    rf.add_argument("--artifact", required=True, help=".npy of the vectors")
+    rf.add_argument(
+        "--observer",
+        action="append",
+        required=True,
+        metavar="CONTRACT",
+        help="an observer contract (.tqo); give exactly two, each with "
+        "budget.max_bytes_per_vector",
+    )
+    rf.add_argument(
+        "--queries",
+        default=None,
+        help=".npy query sample a retrieval consumer reads with",
+    )
+    rf.add_argument(
+        "--sample",
+        type=int,
+        default=20000,
+        help="rows of the artifact to use (default 20000)",
+    )
+    rf.add_argument(
+        "--tax-threshold",
+        type=float,
+        default=0.15,
+        help="largest refinement tax at which a progressive code is recommended "
+        "(default 0.15)",
+    )
+    rf.add_argument("--seed", type=int, default=0)
+    rf.add_argument("--out", help="write the report here")
+    rf.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    rf.set_defaults(func=_cmd_plan_refine)
 
     px = pnsub.add_parser("explain", help="render a plan record for a person")
     px.add_argument("record", help="plan record JSON written by `tqp plan run --out`")
