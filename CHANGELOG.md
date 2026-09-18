@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### 2026-09-18 — pipeline certificate composition (issue #182)
+- **`turboquant_pro.composition`** and **`tqp compose`** — certify the chain,
+  not the stage. The chain check is exact: each stage's certificate records
+  the hashes of the arrays it was issued over, so a chain is well formed only
+  when each stage's output hash is the next stage's input hash, and one that
+  does not connect is refused rather than composed over. The distortion
+  composes because kappa is a ratio of distances and bi-Lipschitz constants
+  multiply; the chain's floor is the corpus's own inversion at the product, so
+  a source sample is required. A composition of the default trimmed kappas is
+  reported as conditional and never called unconditional; the strict
+  constants, which do compose without assumption, are declared with a flag.
+
 ### 2026-09-18 — certified capability discovery (issue #178)
 - **`turboquant_pro.capabilities`** and **`tqp capabilities`** — what a
   representation is currently certified to be used for, in three lists:
