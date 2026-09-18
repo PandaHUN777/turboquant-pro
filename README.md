@@ -20,7 +20,7 @@ tqp replay embedding_glove_recall --small   # reproduce the headline retrieval c
 
 > Every headline number — with its reproduction status, dataset, one-click notebook, and hardware — is a row in **[`CLAIMS.md`](CLAIMS.md)**. The acceptance signal everywhere is rank fidelity / a certificate / the consumer's metric — **never reconstruction cosine.**
 
-The latest **published** pre-release is **2.0.0a2** (production semantics for the vLLM KV connector, the Postgres track, self-metering anatomy instruments); `master` carries **2.0.0a3**, unreleased (empirical false-clear rate, the reconciled claims ledger, the HF cache mask-size fix — see the Unreleased section of the changelog). The last stable line is **1.9.x** (larger-than-RAM search + index format v3), and the `tqp` CLI and certification platform shipped in 1.8.0. APIs under `connectors/` may still move before 2.0.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
+The latest **published** pre-release is **2.0.0a3** (scan kernel v3, bit widths that follow the spectrum, residual-coded IVF, the quantization control plane, the public RaBitQ verdicts, the empirical false-clear rate, the reconciled claims ledger, the stratified instruments); 2.0.0a2 brought production semantics for the vLLM KV connector, the Postgres track and the self-metering anatomy instruments. The last stable line is **1.9.x** (larger-than-RAM search + index format v3), and the `tqp` CLI and certification platform shipped in 1.8.0. APIs under `connectors/` may still move before 2.0.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
 
@@ -187,9 +187,9 @@ tqp query "SELECT id, score FROM 'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECA
 tqp anatomy --npy corpus.npy --k 10                     # hub anatomy: what your hubs ARE (1.9.1)
 tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --min-anti-recall 0.9 \
                                                         # the tail mean recall hides (1.9.1)
-tqp anatomy --npy corpus.npy --strata kmeans:8 --save-map map.json   # per-stratum, not pooled (unreleased)
+tqp anatomy --npy corpus.npy --strata kmeans:8 --save-map map.json   # per-stratum, not pooled (2.0.0a3)
 tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --labels lang.txt \
-  --abstain-fails                                       # min-over-strata; ABSTAIN (unreleased)
+  --abstain-fails                                       # min-over-strata; ABSTAIN (2.0.0a3)
 ```
 
 New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.md)**
@@ -197,9 +197,7 @@ New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.m
 hardest queries collapse, and how `anatomy`/`hubdiff` catch it. **Trust the
 tail, not the mean.**
 
-**Stratified instruments (STRATA Phase 1, unreleased).** These landed after
-the 2.0.0a2 tag, so they are on `master` and in no published wheel yet. Install
-from source (`pip install -e .`) to use them. A pooled hubness number can stay
+**Stratified instruments (STRATA Phase 1, 2.0.0a3).** A pooled hubness number can stay
 green while one stratum fails, so the gates run **per stratum and report
 the minimum**, never the average. Strata come from k-means, a saved area map,
 or a label file. Area maps are content-addressed (`tqp-area-map/1`): an
@@ -232,7 +230,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 |---|---|
 | **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
 | **Beta** | `ADCIndex`, `TQEIndex` (memmap + format v3), `ShardedIndex`, `TurboQuantKVCache`, the rank certificate (`tqp certify`/`verify`), the (A2) probe + quality monitor, the `tqp index` lifecycle, the runtime safe-fallback policy, FAISS / pgvector wrappers |
-| **Experimental** | `IVFIndex` (residual-coded cells on the v3 scan), `with_spectrum_quantizer` (bit widths allocated over the spectrum), agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), STRATA stratified instruments (area maps, min-over-strata gates, ABSTAIN, `attach_strata` — unreleased, `master` only), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, read-operator provider registry + conformance kit (`read_operators`), CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+| **Experimental** | `IVFIndex` (residual-coded cells on the v3 scan), `with_spectrum_quantizer` (bit widths allocated over the spectrum), agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), STRATA stratified instruments (area maps, min-over-strata gates, ABSTAIN, `attach_strata`), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, read-operator provider registry + conformance kit (`read_operators`), CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
 
 **Scope & honesty:** results are strongest on **text embeddings and LLM workloads**; multimodal APIs/presets exist but are less validated. The RaBitQ comparison is the scoped, preregistered one above (six public arms, verdicts MIXED), not an unscoped "beats"; "robust across every architecture" means every architecture *tested*. A recorded long-generation degradation of asym-NF4 KV quant did **not** survive re-validation (erratum 2026-08-15: measured `nf4a` gap −0.31 vs the recorded 13.7 on gov_report-512, n=40; a larger real collapse, 26.64, exists under *symmetric* NF4 only — see [`benchmarks/kvquant_matrix/REVAL-2026-08-08.md`](benchmarks/kvquant_matrix/REVAL-2026-08-08.md) and the CHANGELOG Errata); readscope's C-11c measured operator drift along the sequence — a key compressed against an early operator is later read by a different one, with a 225%-of-uniform mispricing cost, sixteen head-cells against a paired null — and it has now **been run against the real degradation curve and refuted as its mechanism** (amended C-12, 2026-08-15, on the symmetric-NF4 collapse that does reproduce): teacher forcing removes the consistent growth (sign test p = 0.42) and the error's orientation does no work against a rotated null, so the collapse is autoregressive compounding of a large constant error, not drift. C-11c's drift stands as a measurement; its claim to explain this degradation is dead, recorded in [`calibration/records/c12-longgen-drift-sym.json`](https://github.com/ahb-sjsu/readscope/blob/master/calibration/records/c12-longgen-drift-sym.json). Negative results and caveats are kept first-class in [`docs/claims.md`](docs/claims.md) and the [soundness audit](docs/soundness_audit.md).
 

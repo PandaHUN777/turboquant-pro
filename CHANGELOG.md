@@ -1,11 +1,17 @@
 # Changelog
 
-## Unreleased — 2.0.0a3 on `master` (not yet on PyPI)
+## 2.0.0a3 (2026-09-18)
 
-The latest published pre-release is **2.0.0a2**; `turboquant_pro.__version__`
-on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
+Third 2.0 pre-release, published from the `v2.0.0a3` tag. Everything from
+here down to the 2.0.0a2 header is in this wheel, dated as it landed.
 `tests/test_version_consistency.py` keeps this header, the README, and
 `__version__` in agreement.
+
+Known at release: with the compiled AVX2 kernel (`[fast]`), three tests in
+`tests/test_index.py` fail on the order of tied neighbours between the kernel's
+8-bit lookup table and the exact numpy path (same top-10 sets, adjacent pairs
+swapped). They fail identically on 2.0.0a2's `master`; CI runs the numpy path.
+Left as found, to be fixed by comparing sets where the scores tie.
 
 ### 2026-09-18 — the RaBitQ claim, scored on public data and rewritten to where it holds
 - **`benchmarks/RESULTS_rabitq_public.md`** — the preregistered six-arm comparison
