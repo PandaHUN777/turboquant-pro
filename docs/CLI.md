@@ -298,6 +298,20 @@ the same bytes, whether the same codec is chosen, and the change in the consumer
 metric. Exit 1 when it does not reproduce. A replay against different bytes
 reports the mismatch rather than claiming reproduction.
 
+### `tqp capabilities --artifact PATH [--certificate C.json ...] [--observer CONTRACT ...] [--data PATH] [--queries PATH] [--out FILE] [--format text|json]`
+What is this artifact currently certified to be used for (`turboquant_pro.capabilities`,
+issue #178)? Reads the certificates that are about *this* artifact, matched by
+the input hash each one recorded, and states three lists: **certified** (the
+certificate passes and, checked against a current `--data` sample, still
+applies), **conditional** (it passes but is no longer applicable, with the
+reason and action from `tqp verify`, or nothing checked applicability, because
+an unchecked certificate is not a promise), and **not certified** (the
+certificate fails, or an `--observer` contract has no certificate about this
+artifact at all, which is what to certify next). Certificates about a
+different artifact are listed separately and never counted, so a capability
+list cannot be borrowed from another corpus. Exits 1 when nothing is
+certified.
+
 ### `tqp feasibility --artifact PATH (--observer CONTRACT | --reference PROVIDER) [--queries PATH] [--max-distortion F] [--min-tau T] [--metric cosine|l2] [--sample N] [--seed N] [--out FILE] [--format text|json]`
 Before the sweep (`turboquant_pro.feasibility`, issue #176 phase 1): is the
 guarantee attainable, and is anything the consumer needs already missing?

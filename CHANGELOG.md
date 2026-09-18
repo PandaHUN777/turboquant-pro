@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### 2026-09-18 — certified capability discovery (issue #178)
+- **`turboquant_pro.capabilities`** and **`tqp capabilities`** — what a
+  representation is currently certified to be used for, in three lists:
+  certified, conditional, not certified. It reads the certificates that are
+  about this artifact (matched by the input hash each recorded, so a
+  capability list cannot be borrowed from another corpus), checks each one's
+  validity against a current sample (#177), and reports an observer contract
+  with no certificate as not certified with the command that would add it.
+  Without a sample every passing certificate is conditional rather than
+  certified, because an unchecked certificate is not a promise.
+
 ### 2026-09-18 — the cross-observer compatibility matrix (issue #179)
 - **`turboquant_pro.refinement.compatibility_matrix`** and **`tqp plan compat`**
   — is a code built for one reader safe for the others? For each observer it
