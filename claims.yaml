@@ -103,25 +103,30 @@ claims:
 
   embedding_beats_rabitq_ties_opq:
     track: embedding
-    status: needs-local-run
+    status: reproducible
     dataset: >
-      public ann-benchmarks GloVe-100 / NYTimes-256 / deep-image-96 (notebook
-      auto-downloads); RaBitQ/OPQ/PQ via faiss at matched bytes
+      six public arms, preregistered: GloVe-100, deep-image-96, NYTimes-256
+      (ann-benchmarks), DBpedia ada-002 1M, DBpedia text-embedding-3-large
+      1M, Wikipedia-1024 10M; RaBitQ (faiss flat and IVF, rabitqlib IVF,
+      PCA+RaBitQ IVF), OPQ and PQ at matched stored bytes, 3 seeds
     hardware: cpu
-    reference: notebooks/claims/00_canonical_sota_embedding.ipynb
+    reference: benchmarks/RESULTS_rabitq_public.md
     description: >
-      The public-data form of the headline: one table, every method (flat /
-      PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex) at
-      matched bytes with an identical rerank, harness
-      benchmarks/canonical_embedding.py embedded verbatim in the notebook.
-      Committed public-data results (benchmarks/RESULTS_glove.md) cover
-      PQ/OPQ only: at matched bytes tq-pro +rerank wins on GloVe-100 (0.906
-      vs 0.866 OPQ) and deep-image-96 (0.860 vs 0.643) and ties on
-      NYTimes-256 (0.964 vs 0.966). There is NO committed RaBitQ result on a
-      public dataset — the RaBitQ comparison is measured only on the private
-      LaBSE sample (`embedding_labse_32x_headline`); running this notebook
-      on the full corpus produces it. Absolute build times are hardware-bound
-      and need a local run.
+      The public-data test of the RaBitQ clause, preregistered
+      (docs/PREREG_rabitq_public.md, registered 856c4cb) and scored by rule
+      (benchmarks/rabitq_public/score.py) on 519 of 540 cells; 21 recorded
+      as not run (Amendment 4). Verdicts as registered: C1 beats RaBitQ
+      MIXED (15 wins, 47 ties, 10 losses of 72 matched pairs at 5x rerank);
+      C2 ties OPQ MIXED (6, 12, 4 of 22). Where it holds: tq-pro wins at the low-byte end on low-dimensional data, ties once the rerank saturates, and loses only where its own kernel wrapped or at one 132-byte Wikipedia point.
+      The full-dimension losses on text-embedding-3-large ran the kernel
+      that wrapped past 257 dims; on the fixed kernel (supplementary tqfix,
+      Amendment 2) they tie and C2 reaches HOLDS. tq-pro's own residual IVF
+      (tq_ivf, Amendment 3) reaches C1 MIXED 23/64/7 of 94, C2 HOLDS.
+      Supplementary verdicts are reported beside the registered ones, never
+      substituted. The unscoped "beats RaBitQ" is no longer claimed. The
+      notebook notebooks/claims/00_canonical_sota_embedding.ipynb remains
+      the one-Run-all form on GloVe; the committed record is the results
+      file.
 
   embedding_27x_high_recall:
     track: embedding

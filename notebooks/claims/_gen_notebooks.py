@@ -119,8 +119,8 @@ def build_flagship():
         md(
             f"# Canonical SOTA embedding benchmark — {colab_badge(rel)}",
             "",
-            "**Evidence-ladder rung:** Track 1 · the flagship claim — *beats RaBitQ on recall, "
-            "ties OPQ at scale, builds faster* (docs/claims.md).",
+            "**Evidence-ladder rung:** Track 1 · the flagship claim — *wins at the low-byte end, ties RaBitQ and OPQ once the "
+            "rerank saturates, builds faster than OPQ* (docs/claims.md).",
             "",
             "ONE table, ALL methods, IDENTICAL rerank protocol, on a **public** ann-benchmarks "
             "dataset scored against its **provided** ground-truth neighbours — the flagship result, "

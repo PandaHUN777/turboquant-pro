@@ -2,7 +2,8 @@
 """Canonical embedding-compression benchmark harness (Review-1 deliverable).
 
 ONE table, ALL methods, IDENTICAL rerank protocol — so the headline claim
-("beats RaBitQ on recall, ties OPQ at scale, builds faster") is reproducible
+("wins at the low-byte end, ties once the rerank saturates, builds faster
+than OPQ"; benchmarks/RESULTS_rabitq_public.md has the scoped verdicts) is reproducible
 in a single call. Used by notebooks/claims/00_canonical_sota_embedding.ipynb
 (auto-downloads public GloVe) and callable directly on any corpus.
 

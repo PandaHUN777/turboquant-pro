@@ -46,7 +46,7 @@ only if nothing regressed.
 | `embedding_glove_recall` | embedding | ~9.6× compression at recall@10 ≈ 0.999 on real GloVe-100 (1.18M) | **executable**, CI-gated on a hermetic subset — the only CI-gated retrieval number |
 | `track1_recall_smoke` | embedding | PCA+TQ preserves recall@10 at >10× in seconds on CPU | **executable** (not CI-gated) |
 | `embedding_labse_32x_headline` | embedding | the README headline: 32× at recall@10 ≈ 0.999, ties OPQ, beats RaBitQ, ~20× faster build than OPQ | **reported** — private 199k LaBSE sample; [results file](../../benchmarks/RESULTS_labse_199k.md) |
-| `embedding_beats_rabitq_ties_opq` | embedding | the same comparison on public ann-benchmarks data | **needs-local-run** — notebook; no committed RaBitQ row on public data |
+| `embedding_beats_rabitq_ties_opq` | embedding | versus RaBitQ and OPQ at matched bytes on six public arms: wins at the low-byte end on low-dimensional data, ties once the rerank saturates, and loses only where its own kernel wrapped or at one 132-byte Wikipedia point | **reproducible** — preregistered, scored by rule; [results file](../../benchmarks/RESULTS_rabitq_public.md) |
 | `embedding_27x_high_recall` | embedding | up to 27.7× at high recall on concentrated-spectrum encoders | **reported** — private BGE-M3 / LaBSE corpora |
 | `pca_truncation_no_retrain` | embedding | PCA rotation makes non-Matryoshka models truncatable | **reproducible** — notebook 01 |
 | `learned_codebooks_error_reduction` | embedding | learned codebooks cut quantization MSE ~22% | **partial** — notebook 02 |

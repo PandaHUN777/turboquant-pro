@@ -7,6 +7,27 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
 `tests/test_version_consistency.py` keeps this header, the README, and
 `__version__` in agreement.
 
+### 2026-09-18 — the RaBitQ claim, scored on public data and rewritten to where it holds
+- **`benchmarks/RESULTS_rabitq_public.md`** — the preregistered six-arm comparison
+  (`docs/PREREG_rabitq_public.md`, registered `856c4cb`) scored by rule on 519 of
+  540 cells: C1 *beats RaBitQ* **MIXED** (15 wins, 47 ties, 10 losses of 72 matched
+  pairs at 5× rerank), C2 *ties OPQ* **MIXED** (6, 12, 4 of 22). Supplementary,
+  reported beside and never substituted: the fixed kernel (`tqfix`, Amendment 2)
+  ties every full-dimension loss and reaches C2 HOLDS; tq-pro's own residual IVF
+  (`tq_ivf`, Amendment 3) reaches C1 MIXED 23/64/7 and C2 HOLDS. Generated from the
+  scorer's verbatim reports (`benchmarks/rabitq_public/scoring/2026-09-18T1115/`)
+  by `benchmarks/rabitq_public/write_results.py`.
+- **Amendment 4** — 21 registered cells the sizing guard never admitted are recorded
+  as not run; nothing rerun, resized or imputed. Nine baseline configurations are
+  therefore absent from scoring; a missing baseline cannot manufacture a win.
+- **The claim is rewritten**, by the preregistration's own section 5 rule for MIXED:
+  ledger row `embedding_beats_rabitq_ties_opq` is now `reproducible` and reads
+  "wins at the low-byte end on low-dimensional data, ties once the rerank saturates,
+  and loses only where its own kernel wrapped or at one 132-byte Wikipedia point".
+  The unscoped "beats RaBitQ" leaves the README, `CLAIMS.md`, `docs/claims.md`, the
+  replay guide and the canonical notebook. The private-LaBSE headline row keeps its
+  own measured text and its `reported` status.
+
 ### 2026-09-15 — the quantization control plane (P0 of issue #169)
 - **`turboquant_pro.planner`** — a `CompressionPlanner` (alias
   `QuantizationControlPlane`) that answers *which codec, for this consumer, under
