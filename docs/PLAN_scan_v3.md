@@ -221,3 +221,17 @@ is.
   above the registered one. The first pass on the exempt arms was killed at
   their fixed 2 GiB by an unbounded assignment block (fixed in `5d06ae8`);
   23 parked cells then ran clean on the bounded commit.
+- 2026-09-18: Phase 5. The owner recorded the 21 never-admitted cells as not
+  run (Amendment 4) and the registered family stands scored on 519 of 540:
+  C1 MIXED (15, 47, 10 of 72), C2 MIXED (6, 12, 4 of 22); `tqfix` C1 MIXED
+  (15, 54, 3), C2 HOLDS (6, 14, 2); `tq_ivf` C1 MIXED (23, 64, 7 of 94), C2
+  HOLDS (10, 27, 4 of 41). `benchmarks/RESULTS_rabitq_public.md` is written
+  by `benchmarks/rabitq_public/write_results.py` from the scorer's verbatim
+  reports; the ledger row is `reproducible` with the scoped text, and the
+  unscoped phrase is gone from the README, `CLAIMS.md`, `docs/claims.md`,
+  the replay guide and the canonical notebook (`e08ce95`). Build and scan
+  times are not in the scorer's reports and were left out rather than
+  retyped; the Phase 2 and Phase 4 timings above stand as measured. The
+  campaign's orchestrator and utilization guard on Atlas were stopped at
+  closure. Owner items remaining: publish the 2.0.0a3 wheel, merge this
+  branch.
