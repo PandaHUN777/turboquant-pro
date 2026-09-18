@@ -191,3 +191,10 @@ is.
   clone `/home/claude/tqp-reg`, output `/home/claude/deploy/spectrum_bits/`.
   Phase 4's 90 `tq_ivf` cells wait for the registered public pool to drain
   (25 cells left at 23:30 UTC) and for the commit to be reachable by a pod.
+- 2026-09-18 00:34 UTC: Phase 3 measured. `benchmarks/RESULTS_spectrum_bits.md`:
+  S1 MIXED (1024-d: BEATS at 100, 132, 196 and 388 bytes, TIES at 516, LOSES
+  at 260), S2 REFUTED (GloVe loses at 29, 42 and 54 bytes). The allocation
+  wins where the spectrum is steep and the budget is below full-width 4-bit,
+  and it scans two to five times more dimensions to do it. The default stays
+  uniform; `with_spectrum_quantizer` is offered as an operating point, not a
+  replacement.
