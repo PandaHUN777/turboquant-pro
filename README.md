@@ -134,31 +134,40 @@ flowchart LR
 
 ## Benchmark snapshot
 
-At **32× compression** (96 B/vec vs 3072 B fp32; the tq-pro production row is 100 B), recall@10 on a real 199k LaBSE sample — all methods reranked identically (5× oversample + exact rerank). This is a single reported run on a **private** file (`benchmarks/RESULTS_labse_199k.md`, ledger row `embedding_labse_32x_headline`); the public-data version of the same table is one *Run all* of the canonical notebook, and the only CI-gated retrieval number is the GloVe row in [`CLAIMS.md`](CLAIMS.md).
+Public data, preregistered, scored by rule. Six arms from 96 to 1536 dimensions, up to 10M rows; every method at matched stored bytes, three seeds, identical rerank (5× oversample + exact rerank on the originals). For each arm, the most compressed registered tq-pro configuration that has a matched RaBitQ and OPQ baseline under the preregistration's byte-window rule (highest rerank recall inside 0.80–1.05× the tq-pro bytes), beside those baselines and PQ where its window has one. The verdict is the scorer's paired bootstrap at rr5 (10,000 resamples over the queries). Generated from the scorer's report by `python -m rabitq_public.snapshot`; the full record, every configuration and the 21 cells not run are in [`benchmarks/RESULTS_rabitq_public.md`](benchmarks/RESULTS_rabitq_public.md).
 
-| method | recall@10 (single) | recall@10 (+rerank) | index build |
-|---|---:|---:|---:|
-| PQ | 0.467 | 0.827 | 142 s |
-| RaBitQ (2024 SOTA) | 0.630 | 0.962 | 0.3 s |
-| OPQ | 0.780 | 0.999 | 632 s |
-| **turboquant-pro** | **0.784** | **0.9993** | **31 s** |
+| arm (dim) | method | configuration | B/vec | ratio vs fp32 | recall@10 single | recall@10 +rerank ×5 | build s | verdict vs tq-pro |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| **GloVe-100** (100-d) | **tq-pro** | `tq-d100-b2` | 29 | 14× | **0.577** | **0.9058** | 3 | |
+| | RaBitQ | `rabitqlib_ivf-b1-n4096` | 33.99 | 12× | 0.419 | 0.7298 | 74 | tq-pro wins |
+| | OPQ | `opq-m25` | 25 | 16× | 0.518 | 0.8654 | 132 | tq-pro wins |
+| | PQ | `pq-m25` | 25 | 16× | 0.518 | 0.8627 | 73 | tq-pro wins |
+| **deep-image-96** (96-d) | **tq-pro** | `tq-d96-b2` | 28 | 14× | **0.493** | **0.8634** | 24 | |
+| | RaBitQ | `rabitqlib_ivf-b1-n16384` | 32.94 | 12× | 0.472 | 0.8489 | 740 | tq-pro wins |
+| | OPQ | `opq-m24` | 24 | 16× | 0.346 | 0.6878 | 90 | tq-pro wins |
+| | PQ | `pq-m24` | 24 | 16× | 0.327 | 0.6545 | 37 | tq-pro wins |
+| **NYTimes-256** (256-d) | **tq-pro** | `tq-d256-b2` | 68 | 15× | **0.768** | **0.9618** | 3 | |
+| | RaBitQ | `rabitq_ivf-b2-n2048` | 84 | 12× | 0.789 | 0.9656 | 26 | tie |
+| | OPQ | `opq-m64` | 64 | 16× | 0.764 | 0.9667 | 345 | tie |
+| | PQ | `pq-m64` | 64 | 16× | 0.766 | 0.9669 | 178 | tq-pro loses |
+| **DBpedia ada-002 (1M)** (1536-d) | **tq-pro** | `tq-d384-b4` | 196 | 31× | **0.830** | **0.9980** | 67 | |
+| | RaBitQ | `rabitqlib_ivf-b1-n4096` | 221.36 | 28× | 0.837 | 0.9997 | 218 | tie |
+| | OPQ | `opq-m192` | 192 | 32× | 0.809 | 0.9984 | 1611 | tie |
+| | PQ | `pq-m192` | 192 | 32× | 0.669 | 0.9680 | 178 | tq-pro wins |
+| **DBpedia text-embedding-3-large (1M)** (1536-d) | **tq-pro** | `tq-d384-b4` | 196 | 31× | **0.842** | **0.9990** | 51 | |
+| | RaBitQ | `rabitqlib_ivf-b1-n4096` | 221.24 | 28× | 0.855 | 0.9997 | 224 | tie |
+| | OPQ | `opq-m192` | 192 | 32× | 0.857 | 0.9999 | 1588 | tie |
+| | PQ | `pq-m192` | 192 | 32× | 0.807 | 0.9983 | 178 | tie |
+| **Wikipedia-1024 (10M)** (1024-d) | **tq-pro** | `tq-d256-b4` | 132 | 31× | **0.787** | **0.9851** | 340 | |
+| | RaBitQ | `rabitqlib_ivf-b1-n16384` | 147.57 | 28× | 0.827 | 0.9975 | 4233 | tq-pro loses |
+| | OPQ | `opq-m128` | 128 | 32× | 0.820 | 0.9974 | 1425 | tq-pro loses |
+| | PQ | no configuration inside 0.80–1.05 × 132 B | | | | | | |
 
-Bootstrap 95% CIs (n=2000 over 1,000 queries): tq-pro 0.9994 [.999, 1.000] vs OPQ 0.9995 [.999, 1.000] — a tie, not a win; vs RaBitQ 0.9646 [.961, .969] — non-overlapping. Build cost: ~20× below OPQ here, ~4× at 1M; RaBitQ builds in 0.3 s, so the build-time advantage is over OPQ only. Holds at 1M scale (0.989 +rerank, tying OPQ, on Gutenberg LaBSE regenerable via `benchmarks/gutenberg_embed.py`). **Full tables** — the 15-method BGE-M3 comparison, the rerank frontier, KV-cache generation quality & memory, the RaBitQ estimator-isolated head-to-head — are in [**docs/benchmarks/embeddings.md**](docs/benchmarks/embeddings.md) and [**docs/benchmarks/kv.md**](docs/benchmarks/kv.md). Reproduce end-to-end on public data: [`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb) · [Colab](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb).
+Read across the dimensions. At 28–29 bytes on the two low-dimensional arms tq-pro wins every pair after rerank, by 0.01 to 0.21. At 196 bytes on both 1536-d corpora (31×) every method is at or near recall 1.0 after rerank and the pairs tie; single-pass, the differences run within 0.03 either way. At 132 bytes on Wikipedia-1024 (31×) tq-pro loses to RaBitQ's 1-bit IVF and to OPQ m=128 by 0.012 after rerank. NYTimes-256 ties RaBitQ and OPQ at 68 bytes and loses to PQ by 0.005. The registered verdicts are *beats RaBitQ* **MIXED** and *ties OPQ* **MIXED**; on the fixed kernel (supplementary `tqfix`) *ties OPQ* reaches HOLDS. Build seconds are wall-clock in the campaign's 4-CPU pods and are not matched across methods; the RaBitQ rows include IVF training at 2,048 to 16,384 centroids.
 
-The RaBitQ clause does **not** generalize unscoped. On six public arms, preregistered and scored by rule ([`benchmarks/RESULTS_rabitq_public.md`](benchmarks/RESULTS_rabitq_public.md); every method at matched stored bytes, 3 seeds, 5× rerank), the registered verdicts are *beats RaBitQ* **MIXED** and *ties OPQ* **MIXED**. Per arm, wins / ties / losses of the registered pipeline at rr5:
+The earlier private-sample headline, **32× at recall@10 ≈ 0.999** on a 199k LaBSE sample (a statistical tie with OPQ, above RaBitQ, `31 s` build against OPQ's `632 s`), is a single *reported* run in [`benchmarks/RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md) (ledger row `embedding_labse_32x_headline`) and is corroborated at 1M on Gutenberg; the public table above is the snapshot, and the only CI-gated retrieval number is the GloVe row in [`CLAIMS.md`](CLAIMS.md). **Full tables** — the 15-method BGE-M3 comparison, the rerank frontier, KV-cache generation quality & memory, the RaBitQ estimator-isolated head-to-head — are in [**docs/benchmarks/embeddings.md**](docs/benchmarks/embeddings.md) and [**docs/benchmarks/kv.md**](docs/benchmarks/kv.md).
 
-| arm | vs RaBitQ (flat, IVF, rabitqlib, PCA+IVF) | vs OPQ | bytes where tq-pro wins |
-|---|---|---|---|
-| GloVe-100 | 7 / 1 / 0 | 1 / 1 / 1 | 29–54 B |
-| deep-image-96 | 6 / 2 / 0 | 5 / 0 / 0 | 28–52 B |
-| NYTimes-256 | 1 / 9 / 0 | 0 / 2 / 0 | 100 B |
-| DBpedia ada-002 (1536-d, 1M) | 0 / 16 / 0 | 0 / 4 / 0 | — (ties) |
-| DBpedia text-embedding-3-large (1M) | 0 / 6 / 7 | 0 / 2 / 2 | — (losses are the wrapped kernel at full dimension; ties on the fixed kernel) |
-| Wikipedia-1024 (10M) | 1 / 13 / 3 | 0 / 3 / 1 | 100 B; loses at 132 B |
-
-On the fixed kernel (supplementary `tqfix`) the full-dimension losses become ties and *ties OPQ* reaches HOLDS; tq-pro's own residual IVF (`tq_ivf`) wins 23 of 94 pairs with losses in the same two places. 21 of 540 registered cells never ran and are recorded as not run, not imputed (Amendment 4 of the preregistration).
-
-> **Reading compression ratios.** Ratios vary with source dimension, PCA truncation, code width, retained metadata, and whether exact originals are kept for reranking — so distinguish *compressed payload* vs *all-in index storage* vs *full retrieval-pipeline storage*. The canonical headline is **32× at recall@10 ≈ 0.999** above (status *reported*, private data); other figures in the benchmark docs (e.g. 27.7× single-vector, 114× pipeline-storage) are labeled by their accounting basis and are likewise *reported* rows in [`claims.yaml`](claims.yaml).
+> **Reading compression ratios.** Ratios vary with source dimension, PCA truncation, code width, retained metadata, and whether exact originals are kept for reranking — so distinguish *compressed payload* vs *all-in index storage* vs *full retrieval-pipeline storage*. The private-sample headline is **32× at recall@10 ≈ 0.999** (status *reported*); the public table above reports each row's own ratio against fp32; other figures in the benchmark docs (e.g. 27.7× single-vector, 114× pipeline-storage) are labeled by their accounting basis and are likewise *reported* rows in [`claims.yaml`](claims.yaml).
 
 ## At scale & in production
 
