@@ -1287,6 +1287,159 @@ def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
     oi.set_defaults(func=_cmd_observer_init)
 
 
+def _cmd_feasibility(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.feasibility import ABSTAIN, INFEASIBLE, feasibility
+    from turboquant_pro.refinement import observer_operator
+
+    contract = None
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, "feasibility")
+        if contract is None:
+            return 2
+    data = _load_npy(args.artifact, "artifact")
+    x = np.asarray(data, dtype=np.float64).reshape(-1, np.shape(data)[-1])
+    if args.sample and x.shape[0] > args.sample:
+        rng = np.random.default_rng(args.seed)
+        x = x[rng.choice(x.shape[0], args.sample, replace=False)]
+    queries = _load_npy(args.queries, "queries") if args.queries else None
+
+    exact = True
+    if contract is not None:
+        try:
+            P = observer_operator(contract, x, queries=queries)
+        except Exception as e:  # noqa: BLE001 - a provider that cannot build
+            # its operator stops the report; identity would be a different question
+            print(f"feasibility: observer {contract.observer!r}: {e}", file=sys.stderr)
+            return 2
+        exact = _observer_is_exact(contract, queries)
+        observer_ref = contract.reference()
+    elif args.reference:
+        from turboquant_pro.read_operators import (
+            create_read_operator,
+            get_read_operator,
+        )
+
+        try:
+            spec = get_read_operator(args.reference)
+            op = create_read_operator(args.reference)
+            P = np.asarray(op.operator(x, queries=queries), dtype=np.float64)
+        except Exception as e:  # noqa: BLE001
+            print(f"feasibility: --reference {args.reference!r}: {e}", file=sys.stderr)
+            return 2
+        exact = bool(spec.exact)
+        observer_ref = {"observer": f"<{args.reference}>", "provider": args.reference}
+    else:
+        print(
+            "feasibility: give --observer CONTRACT or --reference PROVIDER; the "
+            "question is feasible for whom",
+            file=sys.stderr,
+        )
+        return 2
+
+    max_distortion = args.max_distortion
+    if max_distortion is not None and not 0.0 < max_distortion < 1.0:
+        print("feasibility: --max-distortion is a fraction in (0, 1)", file=sys.stderr)
+        return 2
+    report = feasibility(
+        x,
+        P,
+        observer=observer_ref,
+        max_distortion=max_distortion,
+        min_tau=args.min_tau,
+        exact_operator=exact,
+        metric=args.metric,
+        seed=args.seed,
+    )
+    doc = report.as_dict()
+    doc["artifact"] = {
+        "path": args.artifact,
+        "rows_used": int(x.shape[0]),
+        "dim": int(x.shape[1]),
+    }
+    if not _emit_doc(doc, args.out, args.format, report.explain()):
+        return 2
+    return 1 if report.result in (INFEASIBLE, ABSTAIN) else 0
+
+
+def _observer_is_exact(contract, queries) -> bool:
+    """Is every consumer's operator a closed form? A retrieval consumer read
+    through a query sample is an estimate of the query distribution, and one
+    with no queries at all is the identity stand-in, which identifies nothing."""
+    from turboquant_pro import read_operators as ro
+
+    for c in contract.consumers:
+        if c.metric == "read_operator":
+            try:
+                if not ro.get_read_operator(str(c.config.get("provider"))).exact:
+                    return False
+            except KeyError:
+                return False
+        elif c.metric.startswith("topk_"):
+            if queries is None:
+                return False
+    return True
+
+
+def _add_feasibility_parser(sub: argparse._SubParsersAction) -> None:
+    fs = sub.add_parser(
+        "feasibility",
+        help="before the sweep: is the guarantee attainable, and is anything "
+        "the consumer needs already missing?",
+        description=(
+            "Reads a corpus sample through a declared observer and reports the "
+            "observable rank, the source dimensions the consumer never reads, "
+            "the sensitivity that lies where this corpus has no variance (the "
+            "omission floor, measured), and the bytes per vector the widths can "
+            "reach a declared distortion at. Exits 1 on INFEASIBLE or ABSTAIN. "
+            "A prediction from the Lloyd-Max table, not a measured recall."
+        ),
+    )
+    fs.add_argument("--artifact", required=True, help=".npy of the vectors")
+    fs.add_argument(
+        "--observer",
+        metavar="CONTRACT",
+        help="observer contract (.tqo) to read through",
+    )
+    fs.add_argument(
+        "--reference",
+        metavar="PROVIDER",
+        help="a registered read-operator provider, instead of a contract",
+    )
+    fs.add_argument(
+        "--queries",
+        default=None,
+        help=".npy query sample a retrieval consumer reads with",
+    )
+    fs.add_argument(
+        "--max-distortion",
+        type=float,
+        default=None,
+        metavar="F",
+        help="largest acceptable consumer distortion, as a fraction of the "
+        "observable signal. A recall target is not accepted: it is not "
+        "convertible to a distortion by any distribution-free relation",
+    )
+    fs.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="Kendall-tau floor to answer through the rank certificate's own "
+        "inversion (no conversion needed)",
+    )
+    fs.add_argument("--metric", choices=["cosine", "l2"], default="cosine")
+    fs.add_argument(
+        "--sample", type=int, default=20000, help="rows to use (default 20000)"
+    )
+    fs.add_argument("--seed", type=int, default=0)
+    fs.add_argument("--out", help="write the report here")
+    fs.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    fs.set_defaults(func=_cmd_feasibility)
+
+
 def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
     # plan (nested) — task-aware recipe planner
     pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
@@ -2820,6 +2973,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_verify_parser(sub)
     _add_plan_parser(sub)
     _add_observer_parser(sub)
+    _add_feasibility_parser(sub)
     _add_replay_parser(sub)
     _add_index_parser(sub)
     _add_query_parser(sub)
