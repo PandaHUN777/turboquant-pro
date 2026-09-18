@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### 2026-09-18 — workload-learned observers (issue #180)
+- **`turboquant_pro.workload`** and **`tqp observer learn`** — write the
+  contract the traffic performed rather than the one someone remembers. Reads
+  a JSON Lines request trace, weights consumers by frequency (a configuration
+  is part of a reader's identity, so one metric at two values of `k` is two
+  readers), and writes a contract that goes through the same validation as a
+  hand-written one. It abstains on a reader seen fewer than `--min-count`
+  times, listing it with its count rather than dropping it; reports a metric
+  the registry does not know by name and never maps it onto a neighbour; and
+  records the request count, timestamp span and retained share of traffic in
+  the contract's source block, so a contract learned from an hour is not
+  mistaken for one learned from a month. Exits 1 when nothing clears the
+  threshold rather than inventing a contract.
+
 ### 2026-09-18 — pipeline certificate composition (issue #182)
 - **`turboquant_pro.composition`** and **`tqp compose`** — certify the chain,
   not the stage. The chain check is exact: each stage's certificate records
