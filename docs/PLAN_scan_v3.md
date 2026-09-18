@@ -198,3 +198,11 @@ is.
   and it scans two to five times more dimensions to do it. The default stays
   uniform; `with_spectrum_quantizer` is offered as an operating point, not a
   replacement.
+- 2026-09-18 02:05 UTC: Phase 4 wired into the campaign. Branch pushed
+  (`f511e79` reachable); the harness merged onto the ops branch the campaign
+  runs (`8fa7d67`, `51128c0`), one `sizing_class` for tq, tqfix and tq_ivf;
+  code map `tqp-rbq-code-a3` beside the registered one, which is untouched.
+  Dry run: 81 of 90 cells pass preflight, the nine deep-image cells need their
+  class metered under the guard. Queued on Atlas behind the pools already
+  running: the 81, then the metering wave, then the nine. Scoring:
+  `score.py --supplementary tq_ivf`.
