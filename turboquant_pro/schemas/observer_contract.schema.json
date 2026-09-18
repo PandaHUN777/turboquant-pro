@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/observer_contract.schema.json",
+  "title": "turboquant-pro observer contract (tqp-observer/1)",
+  "description": "Who reads the data, how, under what population, with what guarantees. Content-addressed: the sha256 of the canonical JSON form (sorted keys, tight separators) names the contract in plan records and certificates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile", "observer", "target", "consumers"],
+  "properties": {
+    "schema": {"const": "turboquant-pro/observer-contract"},
+    "profile": {"const": "tqp-observer/1"},
+    "observer": {"type": "string", "minLength": 1, "description": "Human name of the observer, e.g. retrieval-prod-v3."},
+    "target": {"enum": ["embedding", "kv_key", "kv_value", "weight"]},
+    "source": {
+      "type": "object",
+      "description": "Provenance of what is observed: embedding model, dimension, corpus fingerprint. Any keys.",
+      "properties": {
+        "embedding_model": {"type": "string"},
+        "dim": {"type": "integer", "minimum": 1},
+        "corpus_sha256": {"type": "string"}
+      }
+    },
+    "consumers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metric"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "metric": {"type": "string", "minLength": 1, "description": "A consumer metric registered in turboquant_pro.consumers, e.g. topk_cosine, read_operator, declared."},
+          "config": {"type": "object", "description": "Keyword arguments of the metric's factory, e.g. {\"k\": 10}."},
+          "weight": {"type": "number", "exclusiveMinimum": 0, "default": 1.0}
+        }
+      }
+    },
+    "population": {
+      "type": "object",
+      "description": "The rows the guarantees are about: an area map for strata, and the calibration sample they were fitted on.",
+      "properties": {
+        "strata": {"type": "string", "description": "Path of a tqp-area-map/1 file."},
+        "strata_sha256": {"type": "string"},
+        "calibration_sha256": {"type": "string"}
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "floor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum"],
+          "properties": {
+            "metric": {"type": "string", "description": "Label only, e.g. recall@10; the metric is the primary consumer's."},
+            "minimum": {"type": "number", "minimum": 0, "maximum": 1},
+            "confidence": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1, "default": 0.95}
+          }
+        },
+        "worst_stratum_minimum": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes_per_vector": {"type": "number", "exclusiveMinimum": 0},
+        "max_bits": {"type": "number", "exclusiveMinimum": 0},
+        "max_total_bytes": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {"enum": ["exact_rerank", "abstain", "refuse", "none"]}
+      }
+    }
+  }
+}

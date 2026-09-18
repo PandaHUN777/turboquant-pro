@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### 2026-09-18 — observer contracts (issue #173, the first of the Observation Theory family #183)
+- **`turboquant_pro.observer`** — the observer as an artifact. An
+  `ObserverContract` (`tqp-observer/1`, schema
+  `turboquant_pro/schemas/observer_contract.schema.json`) declares who reads a
+  representation: registered consumer metrics with weights, a `read_operator`
+  consumer naming a registered provider, the population (area map,
+  calibration hash), requirements (a floor with confidence, a worst-stratum
+  minimum), budget and fallback. Content-addressed by the sha256 of its
+  canonical JSON form, the area map's convention: key order, whitespace and
+  YAML-versus-JSON do not change it, any declared value does. Validation runs
+  the shipped schema when `jsonschema` is installed and the same rules in
+  plain Python otherwise, then the registries; a contract naming an unknown
+  consumer is refused, as the planner abstains on one.
+- **`tqp observer validate|show|hash|init`**, and `--observer CONTRACT` on
+  `tqp plan run` (its target, primary consumer, floor and budget replace the
+  flags; the plan record gains an `observer` section), `tqp certify` (the
+  certificate gains the same additive section, `schema_version` stays 1) and
+  `tqp verify` (fails when the certificate names no observer or a different
+  hash). Both artifact schemas list the optional section.
+- **Phase 1 scope.** The planner scores the primary consumer (largest weight)
+  and the record says so; the weighted mixture, the monitor, refinement
+  layers and expiry are #174 to #183. `docs/DESIGN_observer_contracts.md`.
+
 ## 2.0.0a3 (2026-09-18)
 
 Third 2.0 pre-release, published from the `v2.0.0a3` tag. Everything from

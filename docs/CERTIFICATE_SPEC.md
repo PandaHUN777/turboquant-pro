@@ -69,6 +69,7 @@ never carries them, and their presence does not bump `schema_version`:
 | `environment` | `tqp certify --environment` | Provenance of the run: `tool_version`, `python`, `numpy`, `platform`, `git_commit`, `hardware`. |
 | `limitations` | `tqp certify --limitation "…"` (repeatable) | Scope caveats — what this certificate does **not** cover. |
 | `reference` | `tqp certify --reference PROVIDER [--reference-config JSON]` | **Which read operator a consumer-relative number was computed against**, plus that number. See below. |
+| `observer` | `tqp certify --observer CONTRACT` | The observer contract (`tqp-observer/1`) the certificate was issued for: `observer`, `sha256` of its canonical form, `target`, the consumer labels and the primary consumer. `tqp verify --observer CONTRACT` fails when the hash differs or the section is absent. See [`DESIGN_observer_contracts.md`](DESIGN_observer_contracts.md). |
 
 ### `reference` — naming the consumer metric
 
