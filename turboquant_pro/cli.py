@@ -1382,6 +1382,91 @@ def _observer_is_exact(contract, queries) -> bool:
     return True
 
 
+def _cmd_capabilities(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.capabilities import CERTIFIED, capabilities
+
+    data_arr = _load_npy(args.artifact, "artifact")
+    certs = []
+    for path in args.certificate or []:
+        try:
+            with open(path, encoding="utf-8") as f:
+                certs.append((path, json.load(f)))
+        except (OSError, ValueError) as e:
+            print(f"capabilities: cannot read {path!r}: {e}", file=sys.stderr)
+            return 2
+    contracts = []
+    for path in args.observer or []:
+        c = _load_observer_or_none(path, "capabilities")
+        if c is None:
+            return 2
+        contracts.append(c)
+    if not certs and not contracts:
+        print(
+            "capabilities: give at least one --certificate or --observer; the "
+            "answer is what the artifacts carry, not a guess",
+            file=sys.stderr,
+        )
+        return 2
+    sample = _load_npy(args.data, "data") if args.data else None
+    queries = _load_npy(args.queries, "queries") if args.queries else None
+    report = capabilities(
+        data_arr,
+        certs,
+        contracts=contracts,
+        data=sample,
+        queries=queries,
+        artifact_path=args.artifact,
+    )
+    doc = report.as_dict()
+    if not _emit_doc(doc, args.out, args.format, report.explain()):
+        return 2
+    return 0 if report.by_status(CERTIFIED) else 1
+
+
+def _add_capabilities_parser(sub: argparse._SubParsersAction) -> None:
+    cb = sub.add_parser(
+        "capabilities",
+        help="what is this artifact currently certified to be used for?",
+        description=(
+            "Reads the certificates that are about this artifact, matched by the "
+            "input hash they recorded, and states three lists: certified (passes "
+            "and still applies), conditional (passes but no longer applicable, or "
+            "not checked), and not certified. An observer contract with no "
+            "certificate about this artifact is reported as not certified, which "
+            "is what to certify next. Exits 1 when nothing is certified."
+        ),
+    )
+    cb.add_argument("--artifact", required=True, help=".npy the certificates are over")
+    cb.add_argument(
+        "--certificate",
+        action="append",
+        metavar="PATH",
+        help="a certificate.json; repeatable",
+    )
+    cb.add_argument(
+        "--observer",
+        action="append",
+        metavar="CONTRACT",
+        help="an observer contract to check for; repeatable",
+    )
+    cb.add_argument(
+        "--data",
+        metavar="PATH",
+        help=".npy sample of the current serving distribution, so each "
+        "certificate's validity is checked rather than assumed",
+    )
+    cb.add_argument(
+        "--queries", metavar="PATH", help=".npy query sample for a retrieval consumer"
+    )
+    cb.add_argument("--out", help="write the report here")
+    cb.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    cb.set_defaults(func=_cmd_capabilities)
+
+
 def _add_feasibility_parser(sub: argparse._SubParsersAction) -> None:
     fs = sub.add_parser(
         "feasibility",
@@ -3091,6 +3176,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_plan_parser(sub)
     _add_observer_parser(sub)
     _add_feasibility_parser(sub)
+    _add_capabilities_parser(sub)
     _add_replay_parser(sub)
     _add_index_parser(sub)
     _add_query_parser(sub)
