@@ -252,6 +252,20 @@ tqp plan run --artifact keys.npy --target kv_key --consumer attention_softmax \
   --queries queries.npy --floor 0.95 --out kv_plan.json
 ```
 
+### `tqp plan refine --artifact PATH --observer A.tqo --observer B.tqo [--queries PATH] [--sample N] [--tax-threshold T] [--seed N] [--out FILE] [--format text|json]`
+Successive refinement across two observers (`turboquant_pro.refinement`,
+issue #174 phase 1): can a base code for the smaller budget be refined into
+one for the larger without paying twice? Builds each contract's read
+operator (a `read_operator` consumer asks its provider; a top-k consumer
+reads along the queries, `E[q qᵀ]`, or every direction equally without
+them), then predicts from the Lloyd-Max distortion table the bytes of each
+observer alone, of the base plus a refinement layer, of one flat code meeting
+both, and of two separate codes. Reports the refinement tax (layered over
+flat, minus one), the operator overlap, and a verdict: progressive
+representation, or separate representations. Nothing is built; the layered
+container is the next phase. Design:
+[`DESIGN_progressive_codes.md`](DESIGN_progressive_codes.md).
+
 ### `tqp plan explain RECORD`
 Renders a plan record for a person: the candidate table with bits, stored bytes
 per vector and the consumer bound, what was selected, the rule that selected it,

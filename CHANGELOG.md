@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-09-18 — the successive-refinement report (issue #174, phase 1)
+- **`turboquant_pro.refinement`** and **`tqp plan refine`** — can two observers
+  share a progressive code? From a corpus sample and two contracts, each
+  observer's read operator (a `read_operator` consumer's provider, or `E[q qᵀ]`
+  over the queries for a retrieval consumer) and byte budget, the report
+  predicts from the Lloyd-Max distortion table the bytes of each observer
+  alone, of the base plus a refinement layer in the base's basis, of one flat
+  code meeting both, and of two separate codes; the refinement tax, the
+  operator overlap, and a verdict (progressive representation, or separate
+  representations, each with its reason). Identical readers layer at no tax,
+  readers on disjoint coordinate blocks layer at no tax, a reader on a rotated
+  subspace is told to keep its own code. A prediction, not a measurement: the
+  layered container and its measurement are the next phases in
+  `docs/DESIGN_progressive_codes.md`.
+
 ### 2026-09-18 — observer contracts (issue #173, the first of the Observation Theory family #183)
 - **`turboquant_pro.observer`** — the observer as an artifact. An
   `ObserverContract` (`tqp-observer/1`, schema
