@@ -287,6 +287,9 @@ def _assign_points(x: np.ndarray, c: np.ndarray, block: int = 100_000) -> np.nda
     ``argmin ||x - c||^2 = argmax x.c - ||c||^2 / 2``."""
     half = 0.5 * (c * c).sum(axis=1).astype(np.float32)
     out = np.empty(len(x), dtype=np.int64)
+    # the (block x nlist) score matrix is the peak: 100k rows against 4,096 centroids
+    # is 1.6 GiB, which killed the 2 GiB pods of the public comparison's small arms
+    block = max(1024, min(int(block), 25_000_000 // max(len(c), 1)))
     for s in range(0, len(x), block):
         xb = np.asarray(x[s : s + block], dtype=np.float32)
         out[s : s + block] = np.argmax(xb @ c.T - half[None, :], axis=1)
