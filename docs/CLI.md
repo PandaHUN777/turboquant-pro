@@ -284,6 +284,26 @@ the same bytes, whether the same codec is chosen, and the change in the consumer
 metric. Exit 1 when it does not reproduce. A replay against different bytes
 reports the mismatch rather than claiming reproduction.
 
+### `tqp feasibility --artifact PATH (--observer CONTRACT | --reference PROVIDER) [--queries PATH] [--max-distortion F] [--min-tau T] [--metric cosine|l2] [--sample N] [--seed N] [--out FILE] [--format text|json]`
+Before the sweep (`turboquant_pro.feasibility`, issue #176 phase 1): is the
+guarantee attainable, and is anything the consumer needs already missing?
+Reads a corpus sample through a declared observer and reports the observable
+signal and its rank, the source dimensions the consumer never reads (free to
+drop), the sensitivity that lies where this corpus does not vary (the omission
+floor, measured), the distortion floor of the widest width, and the fewest
+bytes per vector that reach a declared distortion.
+
+Verdicts: **INFEASIBLE** when the consumer's sensitivity is mostly supported
+by directions this corpus does not vary along (compression repairs neither a
+mis-declared consumer nor an encoder that dropped them), when no allocation of
+the available widths reaches the target, or when the rank certificate's own
+inversion says no compressed code certifies the tau floor; **ABSTAIN** when
+the operator is an estimate and too much source variance lies outside the
+subspace it could identify; **PASS** otherwise. Exit 1 on INFEASIBLE or
+ABSTAIN. A recall target is not accepted: it is not convertible to a
+distortion by any distribution-free relation. Design:
+[`DESIGN_feasibility.md`](DESIGN_feasibility.md).
+
 ### `tqp observer <validate|show|hash|init>`
 Observer contracts (`turboquant_pro.observer`, profile `tqp-observer/1`): a
 YAML or JSON file, by convention `.tqo`, that says who reads a representation

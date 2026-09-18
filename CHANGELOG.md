@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-09-18 — `tqp feasibility`: should this be compressed at all (issue #176, phase 1)
+- **`turboquant_pro.feasibility`** and **`tqp feasibility`** — the questions
+  that come before *which codec*, from one pass over a sample. Through a
+  declared observer's read operator: the observable signal and its rank, the
+  source dimensions the consumer never reads, the sensitivity lying where the
+  corpus does not vary (Observation Theory's omission floor, measured), the
+  distortion floor of the widest width, and the fewest bytes per vector
+  reaching a declared distortion. INFEASIBLE when the consumer's sensitivity
+  is mostly supported by directions this corpus does not vary along, when no
+  allocation of the widths reaches the target, or when the rank certificate's
+  own inversion says no compressed code certifies the tau floor; ABSTAIN when
+  an estimated operator cannot identify enough of the source; PASS otherwise.
+  A recall target is refused rather than converted: no distribution-free
+  relation turns one into a distortion. `docs/DESIGN_feasibility.md`.
+
 ### 2026-09-18 — certificates expire (issue #177, phase 1)
 - **`turboquant_pro.validity`** and the certificate's additive **`validity`**
   section (`tqp certify --validity`, implied by `--observer` and
