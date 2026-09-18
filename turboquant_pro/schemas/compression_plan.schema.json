@@ -230,6 +230,23 @@
         }
       }
     },
+    "observer": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional: the observer contract (tqp-observer/1) this artifact was computed for, named by content hash so a mismatch can be refused. See docs/DESIGN_observer_contracts.md.",
+      "required": ["profile", "observer", "sha256"],
+      "properties": {
+        "profile": {"const": "tqp-observer/1"},
+        "observer": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "target": {"type": "string"},
+        "consumers": {"type": "array", "items": {"type": "string"}},
+        "primary_consumer": {
+          "type": "object",
+          "properties": {"metric": {"type": "string"}, "config": {"type": "object"}, "weight": {"type": "number"}}
+        }
+      }
+    },
     "environment": {
       "type": "object",
       "description": "Software and hardware provenance, plus the codecs that were registered when the plan was made.",

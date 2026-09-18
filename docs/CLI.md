@@ -129,7 +129,7 @@ turboquant_quality_mean_cosine 0.9999
 turboquant_quality_is_healthy 1
 ```
 
-### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--html FILE] [--out FILE] [--format json|text]`
+### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--observer CONTRACT] [--html FILE] [--out FILE] [--format json|text]`
 Emits a **distribution-free rank certificate** (`rank_certificate`) as a
 machine-readable `certificate.json`. Given original and reconstructed embedding
 `.npy` matrices (same row order), it samples anchor pairs, measures the robust
@@ -166,7 +166,7 @@ A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
 is itself the signal: single-stage rank fidelity can't be certified, so exact
 reranking is mandatory.
 
-### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
+### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--observer CONTRACT] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
 Checks a `certificate.json` **that someone else emitted** — the trust primitive
 `certify` was missing. Two layers:
 
@@ -223,7 +223,7 @@ head/layer geometry, estimated cache size + compression ratio, and `risk_flags`
 tqp plan kv --model qwen2.5-7b --target balanced --context 32768 --out kv_plan.json
 ```
 
-### `tqp plan run --artifact PATH [--target embedding|kv_key|kv_value|weight] [--consumer NAME] [--consumer-config JSON] [--queries PATH] [--candidates a,b,c] [--floor F] [--confidence C] [--max-bytes-per-vector N] [--max-bits B] [--objective max_quality|min_cost] [--seed N] [--n-boot N] [--out FILE] [--format json|text]`
+### `tqp plan run --artifact PATH [--observer CONTRACT | --target embedding|kv_key|kv_value|weight --consumer NAME --consumer-config JSON] [--queries PATH] [--candidates a,b,c] [--floor F] [--confidence C] [--max-bytes-per-vector N] [--max-bits B] [--objective max_quality|min_cost] [--seed N] [--n-boot N] [--out FILE] [--format json|text]`
 The quantization control plane (`turboquant_pro.planner`). Enumerates codecs
 from the **plugin registry** — in-tree and out-of-tree alike — measures each one
 on the **consumer's own metric** over a calibration split, keeps a frontier
@@ -262,6 +262,26 @@ Re-runs the record's verification and reports agreement: whether the artifact is
 the same bytes, whether the same codec is chosen, and the change in the consumer
 metric. Exit 1 when it does not reproduce. A replay against different bytes
 reports the mismatch rather than claiming reproduction.
+
+### `tqp observer <validate|show|hash|init>`
+Observer contracts (`turboquant_pro.observer`, profile `tqp-observer/1`): a
+YAML or JSON file, by convention `.tqo`, that says who reads a representation
+(registered consumer metrics with weights, a `read_operator` consumer naming a
+registered provider), under what population (an area map, a calibration
+hash), with what requirements (a floor with confidence, a worst-stratum
+minimum), budget and fallback. It is content-addressed: `hash` prints the
+sha256 of the canonical form, which key order, whitespace and the file format
+do not change. `validate` checks the schema and then the consumer and
+read-operator registries and exits 1 naming each problem; `show` prints it for
+a person or `--format json`; `init --name N --out FILE` writes a one-consumer
+retrieval contract to edit.
+
+The contract is what the other commands take as `--observer`: `tqp plan run`
+reads its target, primary consumer (largest weight), floor and budget and
+writes an `observer` section into the plan record; `tqp certify` writes the
+same section into the certificate (additive, `schema_version` stays 1);
+`tqp verify --observer` fails a certificate that names no observer or a
+different hash. Design: [`DESIGN_observer_contracts.md`](DESIGN_observer_contracts.md).
 
 ### `tqp plan consumers [--target T]`
 Lists the registered consumer metrics (with whether each is the consumer's own

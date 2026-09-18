@@ -574,6 +574,11 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         doc["environment"] = _certify_environment()
     if getattr(args, "limitation", None):
         doc["limitations"] = list(args.limitation)
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, "certify")
+        if contract is None:
+            return 2
+        doc["observer"] = contract.reference()
     if getattr(args, "reference", None):
         try:
             doc["reference"] = _certify_reference(args, orig, recon)
@@ -665,6 +670,12 @@ def _add_certify_parser(sub: argparse._SubParsersAction) -> None:
         "provider, e.g. '{\"n_probe_keys\": 16}'",
     )
     ce.add_argument("--html", help="also write a readable HTML report here")
+    ce.add_argument(
+        "--observer",
+        metavar="CONTRACT",
+        help="observer contract (.tqo) this certificate is issued for; the "
+        "certificate records its name and content hash (additive section)",
+    )
     ce.set_defaults(func=_cmd_certify)
 
 
@@ -697,7 +708,29 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     match_ok = (
         recompute is None or recompute.get("skipped") or recompute.get("match") is True
     )
-    verified = (not problems) and match_ok
+    observer_ok = True
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, "verify")
+        if contract is None:
+            return 2
+        named = doc.get("observer") or {}
+        observer_ok = named.get("sha256") == contract.digest()
+        checks["observer"] = {
+            "path": args.observer,
+            "contract_sha256": contract.digest(),
+            "certificate_sha256": named.get("sha256"),
+            "match": observer_ok,
+            "reason": (
+                None
+                if observer_ok
+                else (
+                    "certificate names no observer"
+                    if not named
+                    else "certificate was issued for a different observer contract"
+                )
+            ),
+        }
+    verified = (not problems) and match_ok and observer_ok
     result = {
         "schema": "turboquant-pro/verification",
         "schema_version": 1,
@@ -736,6 +769,13 @@ def _add_verify_parser(sub: argparse._SubParsersAction) -> None:
     )
     vf.add_argument(
         "--rtol", type=float, default=1e-4, help="rel tolerance on recomputed floors"
+    )
+    vf.add_argument(
+        "--observer",
+        metavar="CONTRACT",
+        help="observer contract (.tqo) the certificate must have been issued "
+        "for; verification fails when the certificate names no observer or "
+        "a different content hash",
     )
     vf.add_argument("--out", help="write the verification report here")
     vf.add_argument(
@@ -990,6 +1030,194 @@ def _cmd_plan_kv(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_observer_or_none(path: str, who: str):
+    """Load and validate a contract for a command; print the problem and
+    return None on failure so the caller exits 2 without writing anything."""
+    from turboquant_pro.observer import ContractError, load_contract
+
+    try:
+        contract = load_contract(path)
+    except ContractError as e:
+        print(f"{who}: {e}", file=sys.stderr)
+        return None
+    problems = contract.validate()
+    if problems:
+        print(f"{who}: observer contract {path!r} does not validate:", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return None
+    return contract
+
+
+def _cmd_observer_validate(args: argparse.Namespace) -> int:
+    from turboquant_pro.observer import ContractError, load_contract
+
+    try:
+        contract = load_contract(args.contract)
+    except ContractError as e:
+        print(f"observer validate: {e}", file=sys.stderr)
+        return 2
+    problems = contract.validate(registries=not args.structure_only)
+    if problems:
+        print(f"INVALID {args.contract}")
+        for p in problems:
+            print(f"  - {p}")
+        return 1
+    print(f"VALID {args.contract}")
+    print(f"  observer {contract.observer}  sha256 {contract.digest()}")
+    return 0
+
+
+def _cmd_observer_show(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.observer import ContractError, load_contract
+
+    try:
+        contract = load_contract(args.contract)
+    except ContractError as e:
+        print(f"observer show: {e}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        doc = contract.as_dict()
+        doc["sha256"] = contract.digest()
+        print(json.dumps(doc, indent=2))
+        return 0
+    weights = contract.normalized_weights()
+    primary = contract.primary()
+    print(f"observer  {contract.observer}   ({contract.profile})")
+    print(f"sha256    {contract.digest()}")
+    print(f"target    {contract.target}")
+    if contract.source:
+        print("source    " + ", ".join(f"{k}={v}" for k, v in contract.source.items()))
+    print("consumers")
+    for c in contract.consumers:
+        mark = "  primary" if c is primary else ""
+        cfg = json.dumps(c.config, sort_keys=True) if c.config else ""
+        print(
+            f"  {c.label:<22} {c.metric:<20} weight {weights[c.label]:.2f}  {cfg}{mark}"
+        )
+    if contract.requirements:
+        print("requirements " + json.dumps(contract.requirements, sort_keys=True))
+    if contract.budget:
+        print("budget       " + json.dumps(contract.budget, sort_keys=True))
+    if contract.population:
+        print("population   " + json.dumps(contract.population, sort_keys=True))
+    if contract.fallback:
+        print("fallback     " + json.dumps(contract.fallback, sort_keys=True))
+    problems = contract.validate()
+    print("valid" if not problems else "INVALID: " + "; ".join(problems))
+    return 0
+
+
+def _cmd_observer_hash(args: argparse.Namespace) -> int:
+    from turboquant_pro.observer import ContractError, load_contract
+
+    try:
+        print(load_contract(args.contract).digest())
+    except ContractError as e:
+        print(f"observer hash: {e}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _cmd_observer_init(args: argparse.Namespace) -> int:
+    import os
+
+    from turboquant_pro.observer import ConsumerClause, ObserverContract, save_contract
+
+    if os.path.exists(args.out) and not args.force:
+        print(
+            f"observer init: {args.out!r} exists; pass --force to overwrite",
+            file=sys.stderr,
+        )
+        return 2
+    contract = ObserverContract(
+        observer=args.name,
+        target=args.target,
+        consumers=(
+            ConsumerClause(
+                name="retrieval",
+                metric=f"topk_{args.metric}",
+                config={"k": args.k},
+                weight=1.0,
+            ),
+        ),
+        requirements={
+            "floor": {
+                "metric": f"recall@{args.k}",
+                "minimum": args.floor,
+                "confidence": 0.95,
+            }
+        },
+        fallback={"action": "exact_rerank"},
+    )
+    problems = contract.validate()
+    if problems:
+        print(
+            "observer init: the template does not validate: " + "; ".join(problems),
+            file=sys.stderr,
+        )
+        return 2
+    fmt = save_contract(contract, args.out)
+    print(f"wrote {args.out} ({fmt}); sha256 {contract.digest()}")
+    return 0
+
+
+def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
+    ob = sub.add_parser(
+        "observer",
+        help="observer contracts (.tqo): who reads the data, how, with what guarantees",
+        description=(
+            "An observer contract names the consumers that read a representation, "
+            "their weights, the population, the requirements, the budget and the "
+            "fallback, and is content-addressed. `tqp plan run`, `tqp certify` and "
+            "`tqp verify` take --observer and record or check its hash."
+        ),
+    )
+    obsub = ob.add_subparsers(dest="observer_command", required=True)
+
+    ov = obsub.add_parser("validate", help="structure, registries, and the hash")
+    ov.add_argument("contract", help="path of a .tqo (YAML or JSON) contract")
+    ov.add_argument(
+        "--structure-only",
+        action="store_true",
+        help="check the schema only, not the consumer and read-operator registries",
+    )
+    ov.set_defaults(func=_cmd_observer_validate)
+
+    os_ = obsub.add_parser("show", help="print the contract for a person, or as JSON")
+    os_.add_argument("contract")
+    os_.add_argument("--format", choices=["text", "json"], default="text")
+    os_.set_defaults(func=_cmd_observer_show)
+
+    oh = obsub.add_parser("hash", help="print the contract's content hash")
+    oh.add_argument("contract")
+    oh.set_defaults(func=_cmd_observer_hash)
+
+    oi = obsub.add_parser(
+        "init", help="write a one-consumer retrieval contract to edit"
+    )
+    oi.add_argument(
+        "--name", required=True, help="observer name, e.g. retrieval-prod-v3"
+    )
+    oi.add_argument("--out", required=True, help="path to write (.tqo YAML, or .json)")
+    oi.add_argument(
+        "--target",
+        default="embedding",
+        choices=["embedding", "kv_key", "kv_value", "weight"],
+    )
+    oi.add_argument(
+        "--metric", default="cosine", choices=["cosine", "inner_product", "l2"]
+    )
+    oi.add_argument("--k", type=int, default=10)
+    oi.add_argument(
+        "--floor", type=float, default=0.95, help="recall@k floor (default 0.95)"
+    )
+    oi.add_argument("--force", action="store_true")
+    oi.set_defaults(func=_cmd_observer_init)
+
+
 def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
     # plan (nested) — task-aware recipe planner
     pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
@@ -1084,26 +1312,40 @@ def _cmd_plan_run(args: argparse.Namespace) -> int:
             print(f"plan run: --consumer-config is not JSON: {e}", file=sys.stderr)
             return 2
 
-    spec = WorkloadSpec(
-        target=args.target,
-        consumer=args.consumer,
-        consumer_config=consumer_config,
-        budget=Budget(
-            max_bytes_per_vector=args.max_bytes_per_vector,
-            max_bits=args.max_bits,
-        ),
-        floor=(
-            QualityFloor(minimum=args.floor, confidence=args.confidence)
-            if args.floor is not None
-            else None
-        ),
-        candidates=tuple(args.candidates.split(",")) if args.candidates else None,
-        objective=args.objective,
-        seed=args.seed,
-        n_boot=args.n_boot,
-    )
+    contract = None
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, "plan run")
+        if contract is None:
+            return 2
+        spec = contract.to_workload_spec(
+            candidates=tuple(args.candidates.split(",")) if args.candidates else None,
+            objective=args.objective,
+            seed=args.seed,
+            n_boot=args.n_boot,
+        )
+    else:
+        spec = WorkloadSpec(
+            target=args.target,
+            consumer=args.consumer,
+            consumer_config=consumer_config,
+            budget=Budget(
+                max_bytes_per_vector=args.max_bytes_per_vector,
+                max_bits=args.max_bits,
+            ),
+            floor=(
+                QualityFloor(minimum=args.floor, confidence=args.confidence)
+                if args.floor is not None
+                else None
+            ),
+            candidates=tuple(args.candidates.split(",")) if args.candidates else None,
+            objective=args.objective,
+            seed=args.seed,
+            n_boot=args.n_boot,
+        )
     plan = CompressionPlanner(spec).plan(Artifact(data, context=context))
     doc = plan.as_dict()
+    if contract is not None:
+        doc["observer"] = contract.reference()
     if not _emit_doc(doc, args.out, args.format, plan.explain()):
         return 2
     return 1 if plan.selected_codec == ABSTAIN else 0
@@ -1246,6 +1488,13 @@ def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
     )
     pr.add_argument("--seed", type=int, default=0)
     pr.add_argument("--n-boot", type=int, default=512, help="bootstrap resamples")
+    pr.add_argument(
+        "--observer",
+        metavar="CONTRACT",
+        help="observer contract (.tqo): its target, primary consumer, floor and "
+        "budget replace --target/--consumer/--consumer-config/--floor/"
+        "--confidence/--max-*; the plan record names the contract by hash",
+    )
     pr.add_argument("--out", help="write the plan record here")
     pr.add_argument(
         "--format", choices=["json", "text"], default="text", help="stdout format"
@@ -2378,7 +2627,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
         description="turboquant-pro unified CLI: trace, probe, plan, certify, "
-        "replay, monitor, plugins.",
+        "verify, replay, monitor, observer, plugins.",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -2390,6 +2639,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_certify_parser(sub)
     _add_verify_parser(sub)
     _add_plan_parser(sub)
+    _add_observer_parser(sub)
     _add_replay_parser(sub)
     _add_index_parser(sub)
     _add_query_parser(sub)
