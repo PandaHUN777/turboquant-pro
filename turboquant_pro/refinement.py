@@ -62,10 +62,19 @@ DEFAULT_TAX_THRESHOLD = 0.15
 __all__ = [
     "ObserverGeometry",
     "RefinementReport",
+    "CompatibilityMatrix",
     "observer_operator",
     "refinement_report",
+    "compatibility_matrix",
     "layer_bytes",
 ]
+
+# A code built for one observer is "safe" for another when it leaves that
+# other observer no more than this multiple of the distortion it would have
+# had from its own code at the same bytes. A stated convention: 1.25 is a
+# quarter more error than its own optimum, which is the band where a reader
+# keeps working and outside which it is reading a different representation.
+SAFE_RATIO = 1.25
 
 
 def layer_bytes(bits: np.ndarray, *, norm: bool = True) -> int:
@@ -273,6 +282,186 @@ def observer_operator(
             Pc = np.eye(d)
         P += w * _symmetric(Pc)
     return P
+
+
+@dataclass
+class CompatibilityMatrix:
+    """What each observer loses when it reads a code built for another.
+
+    Rows are the observer the code was allocated for, columns the observer
+    reading it. Entries are that reader's distortion as a fraction of what it
+    reads at all, and the ratio against its own code at the same bytes.
+    """
+
+    labels: list
+    budget_bytes: float
+    own: dict
+    distortion: dict
+    ratio: dict
+    safe: dict
+    overlap: dict
+    safe_ratio: float
+    meta: dict = field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        return {
+            "schema": "turboquant-pro/compatibility-matrix",
+            "schema_version": 1,
+            "labels": list(self.labels),
+            "budget_bytes": self.budget_bytes,
+            "own": self.own,
+            "distortion": self.distortion,
+            "ratio": self.ratio,
+            "safe": self.safe,
+            "overlap": self.overlap,
+            "safe_ratio": self.safe_ratio,
+            **self.meta,
+        }
+
+    def unsafe_pairs(self) -> list:
+        return [
+            (built, reader)
+            for built in self.labels
+            for reader in self.labels
+            if built != reader and not self.safe[built][reader]
+        ]
+
+    def explain(self) -> str:
+        L = [
+            f"CROSS-OBSERVER COMPATIBILITY at {self.budget_bytes:g} B/vector",
+            "  rows: the code was allocated for this observer",
+            "  cells: the reader's distortion, and the ratio against its own code",
+            "",
+        ]
+        w = max(len(x) for x in self.labels) + 2
+        L.append(" " * w + "  ".join(f"{x:>18}" for x in self.labels))
+        for built in self.labels:
+            cells = []
+            for reader in self.labels:
+                d = self.distortion[built][reader]
+                r = self.ratio[built][reader]
+                mark = "" if self.safe[built][reader] else " !"
+                cells.append(f"{d:.4f} x{r:.2f}{mark:>2}")
+            L.append(f"{built:<{w}}" + "  ".join(f"{c:>18}" for c in cells))
+        bad = self.unsafe_pairs()
+        L.append("")
+        if bad:
+            for built, reader in bad:
+                L.append(
+                    f"UNSAFE: a code built for {built} leaves {reader} "
+                    f"{self.ratio[built][reader]:.2f}x its own distortion "
+                    f"(overlap {self.overlap[built][reader]:.2f})"
+                )
+        else:
+            L.append(
+                f"Every observer reads every code within {self.safe_ratio:.2f}x its "
+                "own distortion at this budget."
+            )
+        return "\n".join(L)
+
+
+def compatibility_matrix(
+    activations: np.ndarray,
+    observers: list,
+    *,
+    budget_bytes: float | None = None,
+    safe_ratio: float = SAFE_RATIO,
+    choices: tuple = (0, 1, 2, 3, 4),
+) -> CompatibilityMatrix:
+    """Is a code built for one observer safe for the others?
+
+    There is no observer-independent distortion, so a representation cannot be
+    called good on its own. For each observer this allocates the code that
+    observer would choose at ``budget_bytes`` in its own eigenbasis, then reads
+    that code with every observer's operator and reports what each one loses.
+
+    A prediction from the Lloyd-Max table, like the refinement report: the
+    error covariance is diagonal in the code's basis, so a reader's distortion
+    is exactly the diagonal of its operator there, but the widths themselves
+    are the table's model of a quantizer, not a measurement of one.
+    """
+    x = np.asarray(activations, dtype=np.float64)
+    x = x.reshape(-1, x.shape[-1])
+    d = x.shape[1]
+    if len(observers) < 2:
+        raise ValueError("a compatibility matrix needs at least two observers")
+    for g in observers:
+        if np.shape(g.operator) != (d, d):
+            raise ValueError(
+                f"observer {g.label!r}: operator is {np.shape(g.operator)}, "
+                f"activations have {d} channels"
+            )
+    if budget_bytes is None:
+        budget_bytes = min(g.budget_bytes for g in observers)
+    budget_bits = int(max(0.0, budget_bytes - NORM_BYTES) * 8)
+    levels = sorted({int(c) for c in choices})
+    if levels[0] != 0:
+        levels = [0] + levels
+
+    labels = [g.label for g in observers]
+    bases, weights, totals = {}, {}, {}
+    for g in observers:
+        U = _eigenbasis(g.operator)
+        var = _variance_along(U, x)
+        bases[g.label] = U
+        weights[g.label] = {
+            h.label: _sensitivity_along(U, h.operator) * var for h in observers
+        }
+        totals[g.label] = {
+            h.label: float(weights[g.label][h.label].sum()) for h in observers
+        }
+
+    own, distortion, ratio, safe, overlap = {}, {}, {}, {}, {}
+    own_distortion = {}
+    for g in observers:
+        bits = allocate_bits(weights[g.label][g.label], budget_bits, tuple(levels))
+        own[g.label] = {
+            "bytes": layer_bytes(bits),
+            "bits_total": int(bits.sum()),
+            "distortion_fraction": (
+                _distortion(weights[g.label][g.label], bits) / totals[g.label][g.label]
+                if totals[g.label][g.label] > 0
+                else 0.0
+            ),
+        }
+        own_distortion[g.label] = own[g.label]["distortion_fraction"]
+        distortion[g.label] = {}
+        for h in observers:
+            w = weights[g.label][h.label]
+            t = totals[g.label][h.label]
+            distortion[g.label][h.label] = _distortion(w, bits) / t if t > 0 else 0.0
+    for g in observers:
+        ratio[g.label], safe[g.label], overlap[g.label] = {}, {}, {}
+        A = _symmetric(g.operator)
+        na = np.linalg.norm(A)
+        for h in observers:
+            base = own_distortion[h.label]
+            r = (distortion[g.label][h.label] / base) if base > 0 else 1.0
+            ratio[g.label][h.label] = float(r)
+            safe[g.label][h.label] = bool(r <= safe_ratio + 1e-12)
+            B = _symmetric(h.operator)
+            nb = np.linalg.norm(B)
+            overlap[g.label][h.label] = (
+                float(np.trace(A @ B) / (na * nb)) if na > 0 and nb > 0 else 0.0
+            )
+    return CompatibilityMatrix(
+        labels=labels,
+        budget_bytes=float(budget_bytes),
+        own=own,
+        distortion=distortion,
+        ratio=ratio,
+        safe=safe,
+        overlap=overlap,
+        safe_ratio=float(safe_ratio),
+        meta={
+            "n_rows": int(x.shape[0]),
+            "dim": int(d),
+            "widths": levels,
+            "model": (
+                "Lloyd-Max distortion table, independent errors in the code's basis"
+            ),
+        },
+    )
 
 
 def refinement_report(

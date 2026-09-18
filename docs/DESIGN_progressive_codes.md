@@ -77,6 +77,27 @@ VERDICT: progressive representation recommended
 
 The numbers above are the report's shape, not a measurement.
 
+## 1b. The compatibility matrix (issue #179)
+
+The same mathematics answers a question one step back: not *can these two
+share a layered code*, but *is the code I already built for one reader safe
+for the others at all*. `compatibility_matrix` allocates, for each observer,
+the code that observer would choose at a common byte budget, then reads that
+code with every observer's operator. Rows are the observer the code was built
+for, columns the reader; cells are the reader's distortion as a fraction of
+what it reads and the ratio against its own code at the same bytes.
+
+A pair counts as safe when that ratio stays under **1.25**, a stated
+convention: a quarter more error than the reader's own optimum is the band
+where it keeps working, and outside it the reader is looking at a different
+representation. Three cases the tests pin: the diagonal is each observer's own
+optimum by construction; readers on disjoint subspaces are unsafe both ways;
+and a code allocated against a reader that reads every direction serves a
+narrower reader safely, while the reverse does not hold. That asymmetry is
+the useful part, and it is invisible to any single-number "quality" of a code.
+
+`tqp plan compat` exits 1 when any pair is unsafe, so it works as a gate.
+
 ## 2. What Phase 1 does not do
 
 - It predicts from the distortion table; it stores nothing and measures no

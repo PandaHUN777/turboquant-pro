@@ -1638,6 +1638,75 @@ def _cmd_plan_refine(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_plan_compat(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.refinement import (
+        ObserverGeometry,
+        compatibility_matrix,
+        observer_operator,
+    )
+
+    if len(args.observer) < 2:
+        print(
+            "plan compat: give two or more --observer contracts "
+            f"(got {len(args.observer)})",
+            file=sys.stderr,
+        )
+        return 2
+    contracts = []
+    for path in args.observer:
+        c = _load_observer_or_none(path, "plan compat")
+        if c is None:
+            return 2
+        if args.budget_bytes is None and not c.budget.get("max_bytes_per_vector"):
+            print(
+                f"plan compat: contract {path!r} ({c.observer}) has no "
+                "budget.max_bytes_per_vector; give --budget-bytes, or declare one",
+                file=sys.stderr,
+            )
+            return 2
+        contracts.append(c)
+    data = _load_npy(args.artifact, "artifact")
+    x = np.asarray(data, dtype=np.float32).reshape(-1, np.shape(data)[-1])
+    if args.sample and x.shape[0] > args.sample:
+        rng = np.random.default_rng(args.seed)
+        x = x[rng.choice(x.shape[0], args.sample, replace=False)]
+    queries = _load_npy(args.queries, "queries") if args.queries else None
+    geoms = []
+    for c in contracts:
+        try:
+            P = observer_operator(c, x, queries=queries)
+        except Exception as e:  # noqa: BLE001 - a provider that cannot build
+            # its operator stops the matrix rather than becoming identity
+            print(f"plan compat: observer {c.observer!r}: {e}", file=sys.stderr)
+            return 2
+        geoms.append(
+            ObserverGeometry(
+                c.observer,
+                P,
+                float(c.budget.get("max_bytes_per_vector") or args.budget_bytes),
+                meta=c.reference(),
+            )
+        )
+    matrix = compatibility_matrix(
+        x, geoms, budget_bytes=args.budget_bytes, safe_ratio=args.safe_ratio
+    )
+    doc = matrix.as_dict()
+    doc["observers"] = [g.meta for g in geoms]
+    doc["artifact"] = {
+        "path": args.artifact,
+        "rows_used": int(x.shape[0]),
+        "dim": int(x.shape[1]),
+    }
+    doc["unsafe_pairs"] = [
+        {"built_for": a, "read_by": b} for a, b in matrix.unsafe_pairs()
+    ]
+    if not _emit_doc(doc, args.out, args.format, matrix.explain()):
+        return 2
+    return 1 if matrix.unsafe_pairs() else 0
+
+
 def _cmd_plan_explain(args: argparse.Namespace) -> int:
     import json
 
@@ -1833,6 +1902,54 @@ def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
         "--format", choices=["json", "text"], default="text", help="stdout format"
     )
     rf.set_defaults(func=_cmd_plan_refine)
+
+    cp = pnsub.add_parser(
+        "compat",
+        help="cross-observer compatibility: is a code built for one reader "
+        "safe for the others?",
+        description=(
+            "There is no observer-independent distortion. For each observer this "
+            "allocates the code that observer would choose at the budget, then "
+            "reads it with every observer's operator and reports what each one "
+            "loses against its own code. Exits 1 when any pair is unsafe."
+        ),
+    )
+    cp.add_argument("--artifact", required=True, help=".npy of the vectors")
+    cp.add_argument(
+        "--observer",
+        action="append",
+        required=True,
+        metavar="CONTRACT",
+        help="an observer contract (.tqo); give two or more",
+    )
+    cp.add_argument(
+        "--queries",
+        default=None,
+        help=".npy query sample a retrieval consumer reads with",
+    )
+    cp.add_argument(
+        "--budget-bytes",
+        type=float,
+        default=None,
+        help="bytes per vector every code is built at (default: the smallest "
+        "budget among the contracts)",
+    )
+    cp.add_argument(
+        "--safe-ratio",
+        type=float,
+        default=1.25,
+        help="largest multiple of its own distortion a reader may be left with "
+        "and still count as safe (default 1.25)",
+    )
+    cp.add_argument(
+        "--sample", type=int, default=20000, help="rows of the artifact to use"
+    )
+    cp.add_argument("--seed", type=int, default=0)
+    cp.add_argument("--out", help="write the matrix here")
+    cp.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    cp.set_defaults(func=_cmd_plan_compat)
 
     px = pnsub.add_parser("explain", help="render a plan record for a person")
     px.add_argument("record", help="plan record JSON written by `tqp plan run --out`")

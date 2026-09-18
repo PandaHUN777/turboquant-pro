@@ -273,6 +273,20 @@ representation, or separate representations. Nothing is built; the layered
 container is the next phase. Design:
 [`DESIGN_progressive_codes.md`](DESIGN_progressive_codes.md).
 
+### `tqp plan compat --artifact PATH --observer A.tqo --observer B.tqo [...] [--queries PATH] [--budget-bytes N] [--safe-ratio R] [--sample N] [--seed N] [--out FILE] [--format text|json]`
+Cross-observer compatibility (issue #179): is a code built for one reader safe
+for the others? There is no observer-independent distortion, so a
+representation cannot be called good on its own. For each observer this
+allocates the code that observer would choose at the budget, in its own
+eigenbasis, then reads that code with every observer's operator. The matrix
+rows are the observer the code was built for and the columns the reader;
+cells are the reader's distortion as a fraction of what it reads at all, and
+the ratio against its own code at the same bytes. A pair is unsafe when the
+ratio exceeds `--safe-ratio` (default 1.25). Exits 1 when any pair is unsafe.
+Same model and same caveat as `tqp plan refine`: a prediction from the
+Lloyd-Max table, not a measured recall. Design:
+[`DESIGN_progressive_codes.md`](DESIGN_progressive_codes.md).
+
 ### `tqp plan explain RECORD`
 Renders a plan record for a person: the candidate table with bits, stored bytes
 per vector and the consumer bound, what was selected, the rule that selected it,
