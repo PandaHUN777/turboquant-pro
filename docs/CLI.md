@@ -298,6 +298,22 @@ the same bytes, whether the same codec is chosen, and the change in the consumer
 metric. Exit 1 when it does not reproduce. A replay against different bytes
 reports the mismatch rather than claiming reproduction.
 
+### `tqp compose --certificate S1.json --certificate S2.json [...] --source PATH [--metric cosine|l2] [--min-tau T] [--unconditional] [--out FILE] [--format text|json]`
+Certify a pipeline rather than a stage (`turboquant_pro.composition`, issue
+#182). A consumer reads the end of a chain, not one codec. Two things are
+composed and kept distinct. **The chain**: each stage's certificate records
+the sha256 of the arrays it was issued over, so a chain is well formed only
+when each stage's reconstructed hash is the next stage's original hash; a
+chain that does not connect is refused with exit 2, which is what catches a
+pipeline assembled from stages that were never connected. **The distortion**:
+kappa is a ratio of distances, so bi-Lipschitz constants multiply, and the
+chain's floor is the corpus's own inversion at the product, which is why a
+`--source` sample is required. The report names the weakest stage. A
+composition of the default trimmed kappas is reported as conditional, never
+unconditional; `--unconditional` declares that the stages recorded strict
+constants (`lo=0, hi=100`), whose product is a true bound. Exits 1 when the
+chain does not clear `--min-tau`.
+
 ### `tqp capabilities --artifact PATH [--certificate C.json ...] [--observer CONTRACT ...] [--data PATH] [--queries PATH] [--out FILE] [--format text|json]`
 What is this artifact currently certified to be used for (`turboquant_pro.capabilities`,
 issue #178)? Reads the certificates that are about *this* artifact, matched by

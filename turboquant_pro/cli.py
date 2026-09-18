@@ -1425,6 +1425,87 @@ def _cmd_capabilities(args: argparse.Namespace) -> int:
     return 0 if report.by_status(CERTIFIED) else 1
 
 
+def _cmd_compose(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.composition import ChainError, compose
+
+    certs = []
+    for path in args.certificate:
+        try:
+            with open(path, encoding="utf-8") as f:
+                certs.append((path, json.load(f)))
+        except (OSError, ValueError) as e:
+            print(f"compose: cannot read {path!r}: {e}", file=sys.stderr)
+            return 2
+    source = _load_npy(args.source, "source")
+    try:
+        report = compose(
+            certs,
+            source,
+            metric=args.metric,
+            min_tau=args.min_tau,
+            unconditional=args.unconditional,
+        )
+    except ChainError as e:
+        print(f"compose: {e}", file=sys.stderr)
+        return 2
+    doc = report.as_dict()
+    doc["source"] = {"path": args.source}
+    if not _emit_doc(doc, args.out, args.format, report.explain()):
+        return 2
+    return 0 if report.passed else 1
+
+
+def _add_compose_parser(sub: argparse._SubParsersAction) -> None:
+    co = sub.add_parser(
+        "compose",
+        help="certify a pipeline: compose stage certificates into one statement",
+        description=(
+            "A consumer reads the end of a chain, not one codec. This checks that "
+            "the stages actually connect (each stage's reconstructed hash is the "
+            "next one's original hash, refusing a chain that does not), multiplies "
+            "their distortions (bi-Lipschitz constants multiply), and reports the "
+            "chain's rank floor as the corpus's own inversion at that product. "
+            "Exits 1 when the chain does not clear the floor, 2 when it does not "
+            "connect."
+        ),
+    )
+    co.add_argument(
+        "--certificate",
+        action="append",
+        required=True,
+        metavar="PATH",
+        help="a stage certificate.json, in pipeline order; give two or more",
+    )
+    co.add_argument(
+        "--source",
+        required=True,
+        help=".npy the first stage was certified over; the chain's floor is the "
+        "corpus's inversion at the product distortion, so it is required",
+    )
+    co.add_argument(
+        "--metric", choices=["cosine", "l2"], default=None, help="default: the stages'"
+    )
+    co.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="Kendall tau floor the chain must clear",
+    )
+    co.add_argument(
+        "--unconditional",
+        action="store_true",
+        help="declare that the stage kappas are strict (lo=0, hi=100) rather than "
+        "the trimmed default, so their product is an unconditional bound",
+    )
+    co.add_argument("--out", help="write the pipeline certificate here")
+    co.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    co.set_defaults(func=_cmd_compose)
+
+
 def _add_capabilities_parser(sub: argparse._SubParsersAction) -> None:
     cb = sub.add_parser(
         "capabilities",
@@ -3177,6 +3258,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_observer_parser(sub)
     _add_feasibility_parser(sub)
     _add_capabilities_parser(sub)
+    _add_compose_parser(sub)
     _add_replay_parser(sub)
     _add_index_parser(sub)
     _add_query_parser(sub)
