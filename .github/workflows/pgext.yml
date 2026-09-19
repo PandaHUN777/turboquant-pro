@@ -10,6 +10,19 @@ name: pgext
 # so four failing tests in the code that consumes it went unseen for months. A
 # check that is not wired into the configuration it guards is not a check.
 # Warnings are errors here for the same reason.
+#
+# The first version of this workflow failed on every run with
+# "$PGRX_HOME does not exist", while passing on the machine it was developed
+# on. That machine had already run `cargo pgrx init`, so the bindings had a
+# PostgreSQL to generate against; a fresh runner has none, and the crate will
+# not compile at all without one. Which is the same mistake in miniature:
+# verified in a configuration that was not the one the check runs in.
+#
+# The fix does not install cargo-pgrx. PGRX_PG_CONFIG_PATH names a pg_config
+# directly and short-circuits the lookup that failed, so the only requirement
+# is PostgreSQL's headers, which the runner image already has. Confirmed by
+# building with PGRX_HOME deliberately pointed at a directory that does not
+# exist: 30 tests passed.
 
 on:
   push:
@@ -22,55 +35,77 @@ on:
       - ".github/workflows/pgext.yml"
   workflow_dispatch:
 
+env:
+  PG_MAJOR: "16"
+  # cargo-pgrx's version must track the pgrx crate's, so it is pinned once here
+  # and used only by the manual job below that actually needs the binary.
+  PGRX_VERSION: "0.12.9"
+
 defaults:
   run:
     working-directory: pgext
 
 jobs:
-  # Everything that needs no live PostgreSQL. The unit tests in compress.rs and
-  # codebook.rs cover the packing, the rotation and the on-disk encoding, which
-  # is the part that must not drift.
-  check:
+  # Formatting needs no PostgreSQL and no build, so it answers in seconds.
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The toolchain comes from pgext/rust-toolchain.toml; it is pinned there
-      # so a channel bump cannot redden this lane for reasons unrelated to the
-      # code, and so the version in CI is the one the tests were verified on.
-      - name: Show the pinned toolchain
+      - name: Toolchain
         run: |
           cargo --version
           rustc --version
+      - name: Format
+        run: cargo fmt --check
+
+  # Everything that compiles the crate: clippy with warnings as errors, and the
+  # unit tests, which cover the packing, the rotation and the frozen on-disk
+  # encoding (issue #165).
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PGRX_PG_CONFIG_PATH: /usr/lib/postgresql/16/bin/pg_config
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PostgreSQL headers for the pgrx bindings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "postgresql-server-dev-${PG_MAJOR}" libclang-dev
+          # Fail here with a clear message rather than deep inside a build
+          # script, which is how the original breakage presented.
+          test -x "$PGRX_PG_CONFIG_PATH" || { echo "no pg_config at $PGRX_PG_CONFIG_PATH"; exit 1; }
+          "$PGRX_PG_CONFIG_PATH" --version
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: pgext
-      - name: Format
-        run: cargo fmt --check
-      - name: Clippy (warnings are errors)
-        run: cargo clippy --no-default-features --features pg16 --all-targets -- -D warnings
-      - name: Unit tests
-        run: cargo test --no-default-features --features pg16
 
-  # `cargo pgrx test` needs `cargo pgrx init`, which downloads and builds a
-  # PostgreSQL, so it is minutes rather than seconds. Kept separate and manual
-  # so the fast lane above stays fast enough to block a merge on.
+      - name: Clippy (warnings are errors)
+        run: cargo clippy --no-default-features --features "pg${PG_MAJOR}" --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --no-default-features --features "pg${PG_MAJOR}"
+
+  # `cargo pgrx test` starts a real PostgreSQL, so it needs the cargo-pgrx
+  # binary and an initialised pgrx home. That is minutes of setup for coverage
+  # the unit tests largely duplicate, so it stays manual rather than blocking
+  # every push.
   pgrx-test:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: PostgreSQL headers for the pgrx bindings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "postgresql-${PG_MAJOR}" "postgresql-server-dev-${PG_MAJOR}" libclang-dev
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: pgext
-      - name: System dependencies for building PostgreSQL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev zlib1g-dev \
-            flex bison libxml2-dev libxslt-dev libssl-dev libxml2-utils \
-            xsltproc ccache pkg-config
-      - name: Install cargo-pgrx at the pinned version
-        run: cargo install cargo-pgrx --version 0.12.9 --locked
-      - name: Initialise a PostgreSQL 16 for pgrx
-        run: cargo pgrx init --pg16 download
+      - name: Install cargo-pgrx (pinned)
+        run: cargo install cargo-pgrx --version "${PGRX_VERSION}" --locked
+      - name: Register that PostgreSQL with pgrx
+        run: cargo pgrx init "--pg${PG_MAJOR}" "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_config"
       - name: Extension tests
-        run: cargo pgrx test pg16
+        run: cargo pgrx test "pg${PG_MAJOR}"
