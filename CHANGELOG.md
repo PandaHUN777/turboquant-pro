@@ -119,6 +119,31 @@
   and the record says so; the weighted mixture, the monitor, refinement
   layers and expiry are #174 to #183. `docs/DESIGN_observer_contracts.md`.
 
+### 2026-09-19 — a numpy-1 test bug that looked like a GPU bug, and the lane that would have caught it (issue #123)
+- **Diagnosed.** Two tests were reported failing on a GPU node without cupy,
+  and the suspicion was a GPU branch taken when CUDA is visible but cupy is
+  not importable. Neither failing test touches GPU code. The real cause is
+  numpy: `tests/test_cuda_search.py` read a packed word with
+  `np.uint64_scalar >> python_int`, which under numpy 1.x value-based
+  promotion has no safe common type and raises `TypeError: ufunc
+  'right_shift' not supported`. NumPy 2's NEP 50 treats the Python int as
+  weak and the same line works, so it passed or failed by numpy version and
+  the GPU was a coincidence. `pack_binary` itself is fine: it shifts an array,
+  which does not hit that rule.
+- **Reproduced and fixed.** On numpy 1.21.6 / Python 3.10 master fails and the
+  fix passes; the library is unchanged. A companion test asserts the
+  documented way to read a packed word works under both promotion regimes.
+- **`tests/test_kvquant_kivi.py`** loads its benchmark harness at module scope
+  and the harness imports transformers, so a container with torch but without
+  transformers failed to *collect* the module rather than skipping it, taking
+  the run down with it. Guarded with an `importorskip`.
+- **The real gap: no lane ever ran numpy 1.** `pyproject` asks for
+  numpy>=1.21 and every lane installed whatever pip resolved, which is always
+  the newest. A `numpy-range` job now pins the declared floor (1.21.6, on
+  Python 3.10 because numpy 1.21 has no 3.12 wheel), the last 1.x (1.26.4)
+  and the first 2.x (2.0.2), which brackets the promotion change. Sized from
+  a measured matrix over eight versions from 1.26.0 to 2.5.3, all green at
+  2023 passed and 0 failed.
 ### 2026-09-19 — the ADC kernel's accuracy contract, written down and tested (issue #171)
 - **Diagnosed.** Four tests in the index and IVF suites failed on any machine
   that had built the kernel, and had for a long time. The cause is not tie

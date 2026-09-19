@@ -28,6 +28,12 @@ from pathlib import Path
 import pytest
 
 torch = pytest.importorskip("torch")  # CPU torch suffices; absent from the [dev] CI env
+# The harness below is imported at collection time and hard-imports
+# transformers. Without this guard, a container that has torch but not
+# transformers (an NRP torch image, for instance) fails to *collect* this
+# module rather than skipping it, which takes the whole run down with it
+# (issue #123).
+pytest.importorskip("transformers")
 
 # ------------------------------------------------------------------ #
 # Load the (non-package) harness module by file path.                #
