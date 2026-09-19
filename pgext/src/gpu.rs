@@ -167,11 +167,7 @@ impl GpuCompressor {
             let idx_slice = &h_indices[i * dim..(i + 1) * dim];
             let data = crate::compress::pack_pub(idx_slice, self.bits);
             results.push(TqVector::new(
-                dim as u16,
-                self.bits,
-                h_norms[i],
-                data,
-                self.seed,
+                dim as u16, self.bits, h_norms[i], data, self.seed,
             ));
         }
 
