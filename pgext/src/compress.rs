@@ -521,10 +521,7 @@ mod tests {
             fresh.data.clone(),
         );
         assert_eq!(legacy.seed, crate::types::LEGACY_ROTATION_SEED);
-        assert_eq!(
-            legacy.format_version,
-            crate::types::LEGACY_FORMAT_VERSION
-        );
+        assert_eq!(legacy.format_version, crate::types::LEGACY_FORMAT_VERSION);
         assert_eq!(decompress(&fresh), decompress(&legacy));
     }
 
@@ -545,7 +542,11 @@ mod tests {
     fn test_compress_batch_records_the_seed() {
         let dim = 64usize;
         let vecs: Vec<Vec<f32>> = (0..3)
-            .map(|r| (0..dim).map(|i| ((r * dim + i) as f32 * 0.05).sin()).collect())
+            .map(|r| {
+                (0..dim)
+                    .map(|i| ((r * dim + i) as f32 * 0.05).sin())
+                    .collect()
+            })
             .collect();
         let out = compress_batch(&vecs, 3, 777);
         assert_eq!(out.len(), 3);

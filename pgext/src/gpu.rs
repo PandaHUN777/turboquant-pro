@@ -102,7 +102,15 @@ impl GpuCompressor {
         let d_bounds = dev.htod_copy(bounds)
             .map_err(|e| format!("Upload bounds: {e}"))?;
 
-        Ok(Self { dev, d_rotation, d_bounds, dim, bits, n_bounds, seed })
+        Ok(Self {
+            dev,
+            d_rotation,
+            d_bounds,
+            dim,
+            bits,
+            n_bounds,
+            seed,
+        })
     }
 
     /// Compress a batch of vectors on GPU.
