@@ -29,6 +29,10 @@ pgrx::pg_module_magic!();
 
 mod codebook;
 mod compress;
+/// The frozen on-disk encoding: golden bytes and roundtrip properties.
+/// Test-only, so it costs nothing in the shipped extension (issue #165).
+#[cfg(test)]
+mod format_tests;
 mod gpu;
 mod types;
 
