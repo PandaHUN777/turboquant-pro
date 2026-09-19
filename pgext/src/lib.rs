@@ -108,10 +108,14 @@ fn tq_l2_distance(a: TqVector, b: TqVector) -> f32 {
 // ─── Metadata functions ──────────────────────────────────────────
 
 #[pg_extern(immutable, parallel_safe)]
-fn tq_dim(tqv: TqVector) -> i32 { tqv.dim as i32 }
+fn tq_dim(tqv: TqVector) -> i32 {
+    tqv.dim as i32
+}
 
 #[pg_extern(immutable, parallel_safe)]
-fn tq_bits(tqv: TqVector) -> i32 { tqv.bits as i32 }
+fn tq_bits(tqv: TqVector) -> i32 {
+    tqv.bits as i32
+}
 
 #[pg_extern(immutable, parallel_safe)]
 fn tq_ratio(tqv: TqVector) -> f32 {
@@ -121,7 +125,9 @@ fn tq_ratio(tqv: TqVector) -> f32 {
 }
 
 #[pg_extern(immutable, parallel_safe)]
-fn tq_norm(tqv: TqVector) -> f32 { tqv.norm }
+fn tq_norm(tqv: TqVector) -> f32 {
+    tqv.norm
+}
 
 #[pg_extern(immutable, parallel_safe)]
 fn tq_size_bytes(tqv: TqVector) -> i32 {
@@ -164,13 +170,16 @@ fn tq_bulk_compress(
     Spi::run(&format!(
         "CREATE TABLE IF NOT EXISTS {} (id TEXT, tqv tqvector)",
         target_table
-    )).unwrap_or_else(|e| pgrx::error!("Create table: {}", e));
+    ))
+    .unwrap_or_else(|e| pgrx::error!("Create table: {}", e));
 
     // Count
     let total: i64 = Spi::get_one(&format!(
         "SELECT COUNT(*)::int8 FROM {} WHERE {} IS NOT NULL",
         source_table, source_column
-    )).unwrap_or(Some(0)).unwrap_or(0);
+    ))
+    .unwrap_or(Some(0))
+    .unwrap_or(0);
 
     if total == 0 {
         pgrx::notice!("No vectors found");
@@ -179,7 +188,9 @@ fn tq_bulk_compress(
 
     pgrx::notice!(
         "Compressing {} vectors ({}-bit, batch={})",
-        total, bits, batch
+        total,
+        bits,
+        batch
     );
 
     let mut count: i64 = 0;
@@ -197,7 +208,8 @@ fn tq_bulk_compress(
         let mut vecs: Vec<Vec<f32>> = Vec::new();
 
         Spi::connect(|client| {
-            let tbl = client.select(&sql, None, None)
+            let tbl = client
+                .select(&sql, None, None)
                 .unwrap_or_else(|e| pgrx::error!("Read: {}", e));
             for row in tbl {
                 let id: Option<String> = row.get::<String>(1).ok().flatten();
@@ -205,7 +217,8 @@ fn tq_bulk_compress(
                 if let (Some(id), Some(emb_s)) = (id, emb_str) {
                     // Parse pgvector text format: [0.1,0.2,...]
                     let cleaned = emb_s.trim_matches(|c| c == '[' || c == ']');
-                    let emb: Vec<f32> = cleaned.split(',')
+                    let emb: Vec<f32> = cleaned
+                        .split(',')
                         .filter_map(|s| s.trim().parse::<f32>().ok())
                         .collect();
                     if !emb.is_empty() {
@@ -225,7 +238,7 @@ fn tq_bulk_compress(
 
         // Insert compressed vectors
         Spi::connect(|mut client| {
-            for (id, tqv) in ids.iter().zip(compressed.iter()) {
+            for (id, _tqv) in ids.iter().zip(compressed.iter()) {
                 // Serialize tqv to the text output format and insert
                 let insert = format!(
                     "INSERT INTO {} (id, tqv) VALUES ('{}', \

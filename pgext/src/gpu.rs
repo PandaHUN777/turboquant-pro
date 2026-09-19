@@ -4,8 +4,6 @@
 //! to the GPU. On a GV100 (14.9 TFLOPS FP32), a 1024x1024 matmul
 //! takes ~0.1ms vs ~8ms on CPU.
 
-use crate::types::TqVector;
-
 #[cfg(feature = "gpu")]
 use cudarc::driver::{CudaDevice, CudaSlice, LaunchAsync, LaunchConfig};
 #[cfg(feature = "gpu")]
@@ -75,18 +73,17 @@ pub struct GpuCompressor {
 impl GpuCompressor {
     /// Initialize GPU compressor. Compiles kernel, uploads rotation matrix.
     pub fn new(dim: usize, bits: u8, seed: u32) -> Result<Self, String> {
-        let ptx = compile_ptx(COMPRESS_KERNEL)
-            .map_err(|e| format!("NVRTC: {e}"))?;
+        let ptx = compile_ptx(COMPRESS_KERNEL).map_err(|e| format!("NVRTC: {e}"))?;
 
-        let dev = CudaDevice::new(0)
-            .map_err(|e| format!("CUDA init: {e}"))?;
+        let dev = CudaDevice::new(0).map_err(|e| format!("CUDA init: {e}"))?;
 
         dev.load_ptx(ptx, "tq", &["tq_compress_kernel"])
             .map_err(|e| format!("Load PTX: {e}"))?;
 
         // Generate and upload rotation matrix
         let rotation = crate::compress::generate_rotation_pub(dim, seed);
-        let d_rotation = dev.htod_copy(rotation)
+        let d_rotation = dev
+            .htod_copy(rotation)
             .map_err(|e| format!("Upload rotation: {e}"))?;
 
         // Upload quantization boundaries
@@ -99,7 +96,8 @@ impl GpuCompressor {
             }
         };
         let n_bounds = bounds.len();
-        let d_bounds = dev.htod_copy(bounds)
+        let d_bounds = dev
+            .htod_copy(bounds)
             .map_err(|e| format!("Upload bounds: {e}"))?;
 
         Ok(Self {
@@ -116,22 +114,25 @@ impl GpuCompressor {
     /// Compress a batch of vectors on GPU.
     ///
     /// `vecs`: flat `[n_vecs * dim]` f32 array, row-major.
-    pub fn compress_batch(
-        &self,
-        vecs: &[f32],
-        n_vecs: usize,
-    ) -> Result<Vec<TqVector>, String> {
+    pub fn compress_batch(&self, vecs: &[f32], n_vecs: usize) -> Result<Vec<TqVector>, String> {
         let dim = self.dim;
         assert_eq!(vecs.len(), n_vecs * dim);
 
-        let d_vecs = self.dev.htod_copy(vecs.to_vec())
+        let d_vecs = self
+            .dev
+            .htod_copy(vecs.to_vec())
             .map_err(|e| format!("Upload: {e}"))?;
-        let mut d_indices = self.dev.alloc_zeros::<u8>(n_vecs * dim)
+        let mut d_indices = self
+            .dev
+            .alloc_zeros::<u8>(n_vecs * dim)
             .map_err(|e| format!("Alloc idx: {e}"))?;
-        let mut d_norms = self.dev.alloc_zeros::<f32>(n_vecs)
+        let mut d_norms = self
+            .dev
+            .alloc_zeros::<f32>(n_vecs)
             .map_err(|e| format!("Alloc norms: {e}"))?;
 
-        let func = self.dev
+        let func = self
+            .dev
             .get_func("tq", "tq_compress_kernel")
             .ok_or("Kernel not found")?;
 
@@ -144,21 +145,29 @@ impl GpuCompressor {
         };
 
         unsafe {
-            func.launch(cfg, (
-                &d_vecs,
-                &self.d_rotation,
-                &self.d_bounds,
-                &mut d_indices,
-                &mut d_norms,
-                n_vecs as i32,
-                dim as i32,
-                self.n_bounds as i32,
-            )).map_err(|e| format!("Launch: {e}"))?;
+            func.launch(
+                cfg,
+                (
+                    &d_vecs,
+                    &self.d_rotation,
+                    &self.d_bounds,
+                    &mut d_indices,
+                    &mut d_norms,
+                    n_vecs as i32,
+                    dim as i32,
+                    self.n_bounds as i32,
+                ),
+            )
+            .map_err(|e| format!("Launch: {e}"))?;
         }
 
-        let h_indices = self.dev.dtoh_sync_copy(&d_indices)
+        let h_indices = self
+            .dev
+            .dtoh_sync_copy(&d_indices)
             .map_err(|e| format!("Download idx: {e}"))?;
-        let h_norms = self.dev.dtoh_sync_copy(&d_norms)
+        let h_norms = self
+            .dev
+            .dtoh_sync_copy(&d_norms)
             .map_err(|e| format!("Download norms: {e}"))?;
 
         // Bit-pack on CPU
@@ -175,11 +184,16 @@ impl GpuCompressor {
     }
 }
 
-/// Placeholder for non-GPU builds.
+/// Placeholder for non-GPU builds. pgrx compiles this crate as a cdylib, so
+/// `pub` does not make an item reachable and the dead-code lint fires on a
+/// stub that exists precisely to be callable and to fail clearly. Allowed
+/// here rather than crate-wide, so real dead code elsewhere still shows up.
 #[cfg(not(feature = "gpu"))]
+#[allow(dead_code)]
 pub struct GpuCompressor;
 
 #[cfg(not(feature = "gpu"))]
+#[allow(dead_code)]
 impl GpuCompressor {
     pub fn new(_dim: usize, _bits: u8, _seed: u32) -> Result<Self, String> {
         Err("GPU not compiled. Rebuild with --features gpu".into())

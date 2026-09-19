@@ -16,7 +16,12 @@ use std::sync::{OnceLock, RwLock};
 // Cache for (dim, seed) -> rotation matrix. Avoids recomputing a
 // 384x384 or 1024x1024 Gram-Schmidt on every compress/decompress call,
 // which was making the <=> operator ~200ms per pair before caching.
-static ROTATION_CACHE: OnceLock<RwLock<HashMap<(usize, u32), Vec<f32>>>> = OnceLock::new();
+/// Rotation bases, keyed by the (dimension, seed) they were generated from.
+/// Named because the bare type is unreadable at the use site and clippy is
+/// right to say so.
+type RotationCache = OnceLock<RwLock<HashMap<(usize, u32), Vec<f32>>>>;
+
+static ROTATION_CACHE: RotationCache = OnceLock::new();
 
 fn get_rotation_cached(dim: usize, seed: u32) -> Vec<f32> {
     let cache = ROTATION_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
@@ -57,12 +62,16 @@ fn randn(state: &mut u32) -> f32 {
 // For dim <= 1024 this takes ~4MB and runs in <50ms. For larger dims,
 // we fall back to structured rotation (Hadamard-like sign flips).
 
-/// Public wrapper for GPU module access.
+/// Public wrapper for GPU module access. Only the GPU path calls it, so it
+/// exists only in that build; without the gate it is dead code in every
+/// default build and the lint is correct to say so.
+#[cfg(feature = "gpu")]
 pub fn generate_rotation_pub(dim: usize, seed: u32) -> Vec<f32> {
     generate_rotation(dim, seed)
 }
 
-/// Public wrapper for GPU module bit-packing.
+/// Public wrapper for GPU module bit-packing. Gated for the same reason.
+#[cfg(feature = "gpu")]
 pub fn pack_pub(indices: &[u8], bits: u8) -> Vec<u8> {
     pack(indices, bits)
 }
@@ -72,8 +81,8 @@ fn generate_rotation(dim: usize, seed: u32) -> Vec<f32> {
     let mut q = vec![0.0f32; dim * dim];
 
     // Fill with Gaussian random (column-major conceptually)
-    for i in 0..dim * dim {
-        q[i] = randn(&mut state);
+    for v in q.iter_mut() {
+        *v = randn(&mut state);
     }
 
     // Modified Gram-Schmidt (column-wise)
@@ -145,7 +154,7 @@ fn apply_sign_flip(vec: &mut [f32], seed: u32) {
 // ─── Bit packing ─────────────────────────────────────────────────
 
 fn pack_3bit(indices: &[u8]) -> Vec<u8> {
-    let groups = (indices.len() + 7) / 8;
+    let groups = indices.len().div_ceil(8);
     let mut packed = vec![0u8; groups * 3];
     for g in 0..groups {
         let mut bits24: u32 = 0;
@@ -163,7 +172,7 @@ fn pack_3bit(indices: &[u8]) -> Vec<u8> {
 }
 
 fn unpack_3bit(packed: &[u8], n: usize) -> Vec<u8> {
-    let groups = (n + 7) / 8;
+    let groups = n.div_ceil(8);
     let mut indices = vec![0u8; n];
     for g in 0..groups {
         let bits24 = packed[g * 3] as u32
@@ -180,7 +189,7 @@ fn unpack_3bit(packed: &[u8], n: usize) -> Vec<u8> {
 }
 
 fn pack_2bit(indices: &[u8]) -> Vec<u8> {
-    let nbytes = (indices.len() + 3) / 4;
+    let nbytes = indices.len().div_ceil(4);
     let mut packed = vec![0u8; nbytes];
     for (i, &idx) in indices.iter().enumerate() {
         packed[i / 4] |= (idx & 0x03) << ((i % 4) * 2);
@@ -197,7 +206,7 @@ fn unpack_2bit(packed: &[u8], n: usize) -> Vec<u8> {
 }
 
 fn pack_4bit(indices: &[u8]) -> Vec<u8> {
-    let nbytes = (indices.len() + 1) / 2;
+    let nbytes = indices.len().div_ceil(2);
     let mut packed = vec![0u8; nbytes];
     for (i, &idx) in indices.iter().enumerate() {
         if i % 2 == 0 {
@@ -287,11 +296,7 @@ pub fn compress(vec: &[f32], bits: u8, seed: u32) -> TqVector {
 
 /// Compress multiple vectors, generating the rotation matrix only once.
 /// ~3-5x faster than calling compress() per vector at 1024-dim.
-pub fn compress_batch(
-    vecs: &[Vec<f32>],
-    bits: u8,
-    seed: u32,
-) -> Vec<TqVector> {
+pub fn compress_batch(vecs: &[Vec<f32>], bits: u8, seed: u32) -> Vec<TqVector> {
     if vecs.is_empty() {
         return vec![];
     }
@@ -417,14 +422,11 @@ mod tests {
 
     #[test]
     fn test_compress_decompress_cosine_3bit() {
-        let vec: Vec<f32> = (0..128)
-            .map(|i| (i as f32) * 0.01 + 0.1)
-            .collect();
+        let vec: Vec<f32> = (0..128).map(|i| (i as f32) * 0.01 + 0.1).collect();
         let tqv = compress(&vec, 3, 42);
         let recovered = decompress(&tqv);
 
-        let dot: f32 = vec.iter().zip(recovered.iter())
-            .map(|(a, b)| a * b).sum();
+        let dot: f32 = vec.iter().zip(recovered.iter()).map(|(a, b)| a * b).sum();
         let na: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nb: f32 = recovered.iter().map(|x| x * x).sum::<f32>().sqrt();
         let cosine = dot / (na * nb);
@@ -433,14 +435,11 @@ mod tests {
 
     #[test]
     fn test_compress_decompress_cosine_4bit() {
-        let vec: Vec<f32> = (0..128)
-            .map(|i| (i as f32) * 0.01 + 0.1)
-            .collect();
+        let vec: Vec<f32> = (0..128).map(|i| (i as f32) * 0.01 + 0.1).collect();
         let tqv = compress(&vec, 4, 42);
         let recovered = decompress(&tqv);
 
-        let dot: f32 = vec.iter().zip(recovered.iter())
-            .map(|(a, b)| a * b).sum();
+        let dot: f32 = vec.iter().zip(recovered.iter()).map(|(a, b)| a * b).sum();
         let na: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nb: f32 = recovered.iter().map(|x| x * x).sum::<f32>().sqrt();
         let cosine = dot / (na * nb);
@@ -528,7 +527,8 @@ mod tests {
         let vec: Vec<f32> = (0..64).map(|i| i as f32 * 0.1).collect();
         let tqv = compress(&vec, 3, 42);
         assert_eq!(tqv.format_version, crate::types::FORMAT_VERSION);
-        assert!(crate::types::FORMAT_VERSION > crate::types::LEGACY_FORMAT_VERSION);
+        // that FORMAT_VERSION exceeds the legacy one is asserted at compile
+        // time in types.rs, where it cannot be skipped
     }
 
     /// The batch path must record the seed too; it is the one a bulk loader
@@ -592,9 +592,7 @@ mod tests {
 
     #[test]
     fn test_all_bit_widths() {
-        let vec: Vec<f32> = (0..256)
-            .map(|i| (i as f32 - 128.0) * 0.01)
-            .collect();
+        let vec: Vec<f32> = (0..256).map(|i| (i as f32 - 128.0) * 0.01).collect();
         for bits in [2u8, 3, 4] {
             let tqv = compress(&vec, bits, 42);
             assert_eq!(tqv.bits, bits);
@@ -618,14 +616,12 @@ mod tests {
                     assert!(
                         (dot - 1.0).abs() < 0.01,
                         "diagonal ({},{}) was {}",
-                        i, j, dot
+                        i,
+                        j,
+                        dot
                     );
                 } else {
-                    assert!(
-                        dot.abs() < 0.01,
-                        "off-diagonal ({},{}) was {}",
-                        i, j, dot
-                    );
+                    assert!(dot.abs() < 0.01, "off-diagonal ({},{}) was {}", i, j, dot);
                 }
             }
         }

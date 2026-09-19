@@ -18,6 +18,14 @@ pg17 = ["pgrx/pg17"]
 pg_test = []
 gpu = ["cudarc"]
 
+# pgrx's pg_module_magic! expands to cfg checks for every PostgreSQL release
+# it knows about, including ones this crate does not offer as a feature.
+# Declaring the expected values keeps `unexpected_cfgs` useful for real typos
+# instead of firing on generated code (issue #163).
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("pg12", "pg13"))',
+] }
 [dependencies]
 pgrx = "0.12"
 serde = { version = "1", features = ["derive"] }

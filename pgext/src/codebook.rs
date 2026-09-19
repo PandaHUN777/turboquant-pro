@@ -7,12 +7,14 @@
 pub const CODEBOOK_2BIT: [f32; 4] = [-1.510, -0.453, 0.453, 1.510];
 
 /// 3-bit Lloyd-Max centroids (8 values)
+#[rustfmt::skip]
 pub const CODEBOOK_3BIT: [f32; 8] = [
     -1.748, -1.050, -0.500, -0.069,
      0.069,  0.500,  1.050,  1.748,
 ];
 
 /// 4-bit Lloyd-Max centroids (16 values)
+#[rustfmt::skip]
 pub const CODEBOOK_4BIT: [f32; 16] = [
     -2.401, -1.844, -1.437, -1.099,
     -0.800, -0.523, -0.258,  0.000,
@@ -24,16 +26,17 @@ pub const CODEBOOK_4BIT: [f32; 16] = [
 pub const BOUNDS_2BIT: [f32; 3] = [-0.9815, 0.0, 0.9815];
 
 /// 3-bit quantization boundaries (7 values)
-pub const BOUNDS_3BIT: [f32; 7] = [
-    -1.399, -0.775, -0.2845, 0.0,
-     0.2845,  0.775,  1.399,
-];
+pub const BOUNDS_3BIT: [f32; 7] = [-1.399, -0.775, -0.2845, 0.0, 0.2845, 0.775, 1.399];
 
 /// Quantize a scalar value to 2-bit index.
 #[inline]
 pub fn quantize_2bit(val: f32) -> u8 {
     if val < BOUNDS_2BIT[1] {
-        if val < BOUNDS_2BIT[0] { 0 } else { 1 }
+        if val < BOUNDS_2BIT[0] {
+            0
+        } else {
+            1
+        }
     } else if val < BOUNDS_2BIT[2] {
         2
     } else {
@@ -46,14 +49,22 @@ pub fn quantize_2bit(val: f32) -> u8 {
 pub fn quantize_3bit(val: f32) -> u8 {
     if val < BOUNDS_3BIT[3] {
         if val < BOUNDS_3BIT[1] {
-            if val < BOUNDS_3BIT[0] { 0 } else { 1 }
+            if val < BOUNDS_3BIT[0] {
+                0
+            } else {
+                1
+            }
         } else if val < BOUNDS_3BIT[2] {
             2
         } else {
             3
         }
     } else if val < BOUNDS_3BIT[5] {
-        if val < BOUNDS_3BIT[4] { 4 } else { 5 }
+        if val < BOUNDS_3BIT[4] {
+            4
+        } else {
+            5
+        }
     } else if val < BOUNDS_3BIT[6] {
         6
     } else {
