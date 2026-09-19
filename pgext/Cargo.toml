@@ -33,6 +33,9 @@ cudarc = { version = "0.12", features = ["std", "driver", "nvrtc", "cuda-12000"]
 
 [dev-dependencies]
 pgrx-tests = "0.12"
+# Property-based roundtrips over arbitrary dims and widths, for the cases
+# hand-written tests miss (issue #165). Pinned like everything else here.
+proptest = "1.5"
 
 [profile.release]
 opt-level = 3

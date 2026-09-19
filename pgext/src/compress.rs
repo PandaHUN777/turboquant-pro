@@ -230,7 +230,7 @@ fn unpack_4bit(packed: &[u8], n: usize) -> Vec<u8> {
     indices
 }
 
-fn pack(indices: &[u8], bits: u8) -> Vec<u8> {
+pub(crate) fn pack(indices: &[u8], bits: u8) -> Vec<u8> {
     match bits {
         2 => pack_2bit(indices),
         3 => pack_3bit(indices),
@@ -239,7 +239,7 @@ fn pack(indices: &[u8], bits: u8) -> Vec<u8> {
     }
 }
 
-fn unpack(packed: &[u8], n: usize, bits: u8) -> Vec<u8> {
+pub(crate) fn unpack(packed: &[u8], n: usize, bits: u8) -> Vec<u8> {
     match bits {
         2 => unpack_2bit(packed, n),
         3 => unpack_3bit(packed, n),
