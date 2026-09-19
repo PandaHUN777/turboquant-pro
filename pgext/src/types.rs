@@ -1,5 +1,11 @@
 //! TqVector — the PostgreSQL custom type for compressed vectors.
 
+// `for_loops_over_fallibles` fires inside the items pgrx's `PostgresType`
+// derive generates, not on anything written here. An item-level allow cannot
+// reach generated items, so it sits at module scope; this module holds only
+// the type definition, so the lint still guards every line we write
+// elsewhere (issue #163).
+#![allow(for_loops_over_fallibles)]
 use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +21,11 @@ pub const LEGACY_FORMAT_VERSION: u8 = 0;
 
 /// Format version written today: `seed` is present and authoritative.
 pub const FORMAT_VERSION: u8 = 1;
+
+/// A new format version must be greater than the legacy one, or a reader
+/// cannot tell which of two encodings it is holding. Checked at compile time
+/// rather than in a test, because a test can be skipped and this cannot.
+const _: () = assert!(FORMAT_VERSION > LEGACY_FORMAT_VERSION);
 
 fn legacy_seed() -> u32 {
     LEGACY_ROTATION_SEED
@@ -42,11 +53,7 @@ fn legacy_version() -> u8 {
 /// `LEGACY_ROTATION_SEED` and `LEGACY_FORMAT_VERSION`, which is exactly how
 /// they were encoded, so they keep decoding correctly and no migration is
 /// needed.
-#[derive(
-    Clone, Debug,
-    Serialize, Deserialize,
-    PostgresType,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PostgresType)]
 #[inoutfuncs]
 pub struct TqVector {
     /// Original embedding dimension
@@ -123,9 +130,9 @@ impl TqVector {
     /// Calculate packed data size for given dim and bits.
     pub fn packed_size(dim: usize, bits: u8) -> usize {
         match bits {
-            2 => (dim + 3) / 4,
-            3 => ((dim + 7) / 8) * 3,
-            4 => (dim + 1) / 2,
+            2 => dim.div_ceil(4),
+            3 => dim.div_ceil(8) * 3,
+            4 => dim.div_ceil(2),
             _ => dim,
         }
     }

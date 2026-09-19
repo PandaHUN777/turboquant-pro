@@ -1,0 +1,11 @@
+# Pinned so a toolchain bump cannot break this lane for reasons unrelated to
+# the code. pgrx tracks PostgreSQL releases closely and an unpinned Rust or
+# pgrx version is the usual cause of a red extension build; the Python lanes
+# pin their eras the same way.
+#
+# Verified against cargo 1.94.1 / rustc 1.94.1 with cargo-pgrx 0.12.9, the
+# toolchain the extension's tests were run on.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

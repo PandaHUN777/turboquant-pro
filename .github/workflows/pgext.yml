@@ -1,0 +1,76 @@
+name: pgext
+
+# The Rust extension had no CI at all: cargo build, test, fmt and clippy never
+# ran on any push, while the Python side was gated hard. An uncovered compiled
+# component that defines a *persisted* type is the least defensible gap in a
+# project whose stated goal is format stability (issue #163).
+#
+# The lesson from issue #171 is why this gates rather than reports: the ADC
+# kernel had a job that built it and then ran only its own arithmetic replay,
+# so four failing tests in the code that consumes it went unseen for months. A
+# check that is not wired into the configuration it guards is not a check.
+# Warnings are errors here for the same reason.
+
+on:
+  push:
+    paths:
+      - "pgext/**"
+      - ".github/workflows/pgext.yml"
+  pull_request:
+    paths:
+      - "pgext/**"
+      - ".github/workflows/pgext.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: pgext
+
+jobs:
+  # Everything that needs no live PostgreSQL. The unit tests in compress.rs and
+  # codebook.rs cover the packing, the rotation and the on-disk encoding, which
+  # is the part that must not drift.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The toolchain comes from pgext/rust-toolchain.toml; it is pinned there
+      # so a channel bump cannot redden this lane for reasons unrelated to the
+      # code, and so the version in CI is the one the tests were verified on.
+      - name: Show the pinned toolchain
+        run: |
+          cargo --version
+          rustc --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pgext
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy (warnings are errors)
+        run: cargo clippy --no-default-features --features pg16 --all-targets -- -D warnings
+      - name: Unit tests
+        run: cargo test --no-default-features --features pg16
+
+  # `cargo pgrx test` needs `cargo pgrx init`, which downloads and builds a
+  # PostgreSQL, so it is minutes rather than seconds. Kept separate and manual
+  # so the fast lane above stays fast enough to block a merge on.
+  pgrx-test:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pgext
+      - name: System dependencies for building PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libreadline-dev zlib1g-dev \
+            flex bison libxml2-dev libxslt-dev libssl-dev libxml2-utils \
+            xsltproc ccache pkg-config
+      - name: Install cargo-pgrx at the pinned version
+        run: cargo install cargo-pgrx --version 0.12.9 --locked
+      - name: Initialise a PostgreSQL 16 for pgrx
+        run: cargo pgrx init --pg16 download
+      - name: Extension tests
+        run: cargo pgrx test pg16
