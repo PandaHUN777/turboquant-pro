@@ -73,6 +73,13 @@ jobs:
           python -m turboquant_pro._adc
       - name: Kernel tests
         run: pytest -q tests/test_adc_kernel.py
+      # The kernel's own arithmetic replay is not enough: for a long time it
+      # passed here while four tests in the index and IVF suites failed on any
+      # box that had built the kernel, because the whole-suite job never builds
+      # it and this job never ran them (issue #171). The consumers of the
+      # kernel are now exercised in the configuration where it exists.
+      - name: Index and IVF suites with the kernel present
+        run: pytest -q tests/test_index.py tests/test_ivf.py tests/test_kernel_contract.py
 
   # Python 3.9 lane. pyproject advertises >=3.9, and a 2026-09-03 probe showed
   # the library passes there (996/999; the 3 failures were one zip(strict=)

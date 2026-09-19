@@ -105,6 +105,70 @@ idx, scores = batched_adc_search(queries, packed_codes, tq, top_k=10, device="cu
 Replaces the per-query `gpu_adc_search` loop; `TurboQuantPGVector` gains a
 `build_adc_index()` that does the one-time repack.
 
+## 3b. The accuracy contract (issue #171)
+
+The kernel is an **approximate scorer, by construction**. `build_lut` quantizes
+the per-dim table to 255 levels of a single query-global scale; that is what
+lets the inner loop run on `uint8` SIMD lanes, and it is what makes the score
+inexact. The numpy path in `score_block` is the reference: it scores the same
+formula at full float precision.
+
+Both run in the same library, and `TQEIndex.search` chooses between them:
+
+```python
+if self._mmap or block is not None or exact:   # numpy, exact float ADC
+else:                                          # compiled kernel, uint8 LUT
+```
+
+For a long time four tests asserted that those two return identical neighbour
+ids. They pass with no kernel built and fail with one, and the failure was read
+as a tie-ordering problem. It is not. With the kernel suppressed the paths
+agree bit for bit; with it present, 33 of 200 returned ids differ and **none of
+the disagreeing scores are equal**. The two sides are different scorers, not
+two traversal orders of one.
+
+### What is promised
+
+Measured on Atlas (Xeon E5-2690 v3, AVX2) over six shapes, n 800 to 4000, dim
+48 to 128, output 16 to 128, bits 2 to 4, 32 queries each:
+
+| quantity | observed |
+|---|---|
+| max abs deviation of a kernel score from the exact score | 2.9e-3 to 6.3e-3 |
+| that deviation as a fraction of the top-k score spread | 0.5% to 2.3% |
+| recall@10 of the kernel's top-k against the exact top-k | 0.972 to 0.988 mean, 0.90 worst query |
+| how far a disagreed-on id sits from the k-th exact score | always at or below the deviation |
+
+The last row is the one worth stating as a promise: **the kernel only reorders
+neighbours whose exact scores lie inside its own resolution.** A disagreement
+further out than that would mean it preferred a neighbour it could tell was
+worse, and `tests/test_kernel_contract.py` fails if that ever happens.
+
+So:
+
+* **Within one scorer, a ranking is reproducible bit for bit**, whatever the
+  storage layout. `exact=True` is reproducible across RAM, memory-map and any
+  block size, and that is tested.
+* **Across the two scorers, it is not**, and no amount of tie-breaking would
+  fix it, because the scores genuinely differ.
+* **`exact=True` is how a caller demands the reference scorer.** Use it when a
+  run has to be comparable to another run whose layout you do not control:
+  certificate anchors, claim replay, a recorded plan re-run. Before this was a
+  parameter, callers got the exact path only as a side effect of passing
+  `block`, which is not something to rely on.
+* **Reranking removes the difference.** An exact rescoring of a wider candidate
+  set lands on the same neighbours from either scorer, which is the two-stage
+  path the library recommends anyway.
+
+### Why CI did not see it
+
+`.github/workflows/ci.yml` had two jobs that between them covered everything
+except the interesting configuration: `adc-kernel` built the kernel and ran
+only `tests/test_adc_kernel.py`, and the whole-suite job never built the
+kernel, so every kernel-gated path skipped. The kernel was exercised by its own
+arithmetic replay and by nothing that consumes it. The `adc-kernel` job now
+also runs the index, IVF and contract suites.
+
 ## 4. Validation
 
 - **Correctness:** top-k from the kernel must match the reference per-query ADC

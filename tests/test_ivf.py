@@ -39,7 +39,16 @@ def test_probe_all_equals_bruteforce():
     ref = _brute_adc_topk(corpus, q, 10)
     ivf = IVFIndex.create(corpus, output_dim=32, bits=4, residual=False)
     ids, _, stats = ivf.search(q, k=10, nprobe=ivf.stats()["nlist"], return_stats=True)
-    assert _recall(ids, ref, 10) == 1.0  # identical ranking, no approximation
+    # Probing every cell scans every row, which is the point of the assertion
+    # on scan_fraction. The ranking is identical when both sides use the same
+    # scorer; with a compiled kernel built, `_brute_adc_topk` scores in numpy
+    # and the IVF scan goes through the kernel's uint8 table, so a handful of
+    # boundary neighbours reorder within its resolution (issue #171, contract
+    # tested in tests/test_kernel_contract.py).
+    from turboquant_pro import _adc
+
+    floor = 0.95 if _adc.is_available() else 1.0
+    assert _recall(ids, ref, 10) >= floor
     assert all(s.scan_fraction == 1.0 for s in stats)
 
 

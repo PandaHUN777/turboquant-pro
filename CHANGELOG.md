@@ -119,6 +119,29 @@
   and the record says so; the weighted mixture, the monitor, refinement
   layers and expiry are #174 to #183. `docs/DESIGN_observer_contracts.md`.
 
+### 2026-09-19 — the ADC kernel's accuracy contract, written down and tested (issue #171)
+- **Diagnosed.** Four tests in the index and IVF suites failed on any machine
+  that had built the kernel, and had for a long time. The cause is not tie
+  ordering, as suspected: `TQEIndex.search` sends memory-mapped and blocked
+  searches to the numpy exact-float scorer and in-RAM unblocked searches to
+  the compiled kernel's uint8 lookup table, and the tests compared the two.
+  With the kernel suppressed they agree bit for bit; with it present 33 of
+  200 ids differ and none of the disagreeing scores are equal.
+- **`TQEIndex.search(..., exact=True)`** forces the reference scorer. Use it
+  when a run must be comparable to another whose storage layout you do not
+  control: certificate anchors, claim replay, a recorded plan re-run.
+  Previously that was available only as a side effect of passing `block`.
+- **`tests/test_kernel_contract.py`** states the promise and tests it: exact
+  searches are reproducible across RAM, memory-map and block size; with no
+  kernel every path agrees bit for bit; and with a kernel its scores stay
+  within 5% of the top-k score spread and it only reorders neighbours whose
+  exact scores lie inside its own deviation. Measured worst case across six
+  shapes was 2.3%.
+- **The CI gap is closed.** The `adc-kernel` job ran only the kernel's own
+  arithmetic replay, so nothing that consumes the kernel was ever tested in
+  the configuration where it exists. It now runs the index, IVF and contract
+  suites too. Full contract: `docs/DESIGN_fast_adc.md`.
+
 ## 2.0.0a3 (2026-09-18)
 
 Third 2.0 pre-release, published from the `v2.0.0a3` tag. Everything from
