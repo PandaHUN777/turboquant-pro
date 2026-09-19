@@ -41,12 +41,35 @@ class TestPackBinary:
         rng = np.random.default_rng(42)
         original = rng.integers(0, 2, size=(10, 64), dtype=np.uint8)
         packed = pack_binary(original)
-        # Unpack to verify
+        # Unpack to verify. `word` is converted to a Python int first, and that
+        # is not cosmetic: under numpy 1.x's value-based promotion a np.uint64
+        # scalar shifted by a Python int has no safe common type (uint64 and
+        # int64 promote to float64), so `word >> b` raises
+        #   TypeError: ufunc 'right_shift' not supported for the input types
+        # NumPy 2's NEP 50 treats the Python int as weak and the same
+        # expression works, which is why this passed on some machines and not
+        # others and got mistaken for a GPU-related failure (issue #123).
         for i in range(10):
-            word = packed[i, 0]
+            word = int(packed[i, 0])
             for b in range(64):
-                bit = int((word >> b) & 1)
+                bit = (word >> b) & 1
                 assert bit == original[i, b], f"Mismatch at vec={i}, bit={b}"
+
+    def test_packed_words_unpack_under_either_numpy_promotion(self) -> None:
+        """The documented way to read a packed word must work on every numpy
+        this project supports (>=1.21), not only on the one that happens to be
+        installed. Guards the regression in issue #123, which was a test that
+        only worked under NEP 50."""
+        original = np.array([[1, 0, 1, 1] + [0] * 60], dtype=np.uint8)
+        word = pack_binary(original)[0, 0]
+        assert word.dtype == np.uint64
+        # int() first: correct under both promotion regimes
+        as_int = int(word)
+        assert [(as_int >> b) & 1 for b in range(4)] == [1, 0, 1, 1]
+        # shifting by a numpy scalar of the same dtype also avoids the mixed
+        # signed/unsigned promotion, and is the idiom to use when staying in
+        # numpy types
+        assert int((word >> np.uint64(2)) & np.uint64(1)) == 1
 
 
 @pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
