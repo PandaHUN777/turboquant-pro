@@ -501,6 +501,7 @@ class TQEIndex:
         rerank: int = 0,
         policy=None,
         block: int | None = None,
+        exact: bool = False,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Top-``k`` external ids per query, excluding tombstoned rows.
 
@@ -513,6 +514,26 @@ class TQEIndex:
         boundary is tied (a fragile ranking) the policy escalates to an exact
         rerank automatically — cheap where margins are wide, conservative where
         they are not.
+
+        **Which scorer runs, and what that promises.** In RAM with no ``block``
+        this scores through the compiled kernel when one is built: its per-dim
+        table is quantized to 255 levels, which is what makes it fast and makes
+        it *approximate*. A memory-mapped or blocked search scores in numpy at
+        full float precision, and so does ``exact=True``. The kernel's score
+        sits within the table's resolution of the exact one — measured at 0.5%
+        to 2.3% of the top-k score spread across shapes — and it only reorders
+        neighbours whose exact scores lie inside that margin. Two consequences
+        worth knowing rather than discovering:
+
+        * rankings are reproducible bit for bit *within* a scorer, not across
+          the kernel and the exact path, so a result recorded from one and
+          compared against the other can differ at the top-k boundary;
+        * pass ``exact=True`` when a run has to be comparable to another run
+          whose storage layout you do not control — certificate anchors, claim
+          replay, a recorded plan re-run. It costs the kernel's speed and buys
+          a ranking that does not depend on how the index was opened.
+
+        See ``docs/DESIGN_fast_adc.md`` for the measurement behind the numbers.
         """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
@@ -524,9 +545,12 @@ class TQEIndex:
         # Over-fetch so that after dropping tombstones we still have k * rerank.
         want = k * max(rerank, 1)
         fetch = min(n_rows, want + n_dead)
-        # Blocked (bounded-memory) search when memory-mapped or asked for;
-        # the compiled-kernel fast path otherwise.
-        if self._mmap or block is not None:
+        # Blocked (bounded-memory) search when memory-mapped or asked for, and
+        # whenever the caller asks for the exact scorer; the compiled-kernel
+        # fast path otherwise. The two are not interchangeable at the top-k
+        # boundary (issue #171), which is why `exact` is a parameter and not a
+        # side effect of passing `block`.
+        if self._mmap or block is not None or exact:
             cand_pos, cand_sc = self._candidate_search(q, fetch, block or 262_144)
         else:
             cand_pos, cand_sc = self._adc.search(q, k=fetch)

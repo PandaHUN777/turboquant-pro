@@ -260,12 +260,17 @@ def test_mmap_search_matches_in_ram(tmp_path):
         assert isinstance(codes._packed, np.memmap)
     assert not ram._mmap
     q = corpus[:50]
+    # Compare like with like: a memory-mapped search always scores in numpy, so
+    # the RAM side is asked for the same scorer. With a compiled kernel built,
+    # an unblocked in-RAM search is the *approximate* scorer and the two would
+    # differ at the top-k boundary by the lookup table's resolution; that
+    # contract is tested in tests/test_kernel_contract.py (issue #171).
     # Exact rerank is deterministic — memmap and in-RAM must agree exactly.
-    a_ids, _ = ram.search(q, k=10, rerank=10)
+    a_ids, _ = ram.search(q, k=10, rerank=10, exact=True)
     b_ids, _ = mm.search(q, k=10, rerank=10)
     np.testing.assert_array_equal(a_ids, b_ids)
     # Single-pass top-k sets agree too (same ADC scores).
-    a1, _ = ram.search(q, k=10)
+    a1, _ = ram.search(q, k=10, exact=True)
     b1, _ = mm.search(q, k=10)
     assert all(set(x) == set(y) for x, y in zip(a1, b1))
 
@@ -350,11 +355,15 @@ def test_v3_roundtrip_identical_ram_and_mmap(tmp_path):
     p = tmp_path / "v3.tqe"
     idx.save(str(p))
     q = corpus[:40]
-    a, asc = idx.search(q, k=10)
+    # exact=True on every side: the mmap path has no choice but the numpy
+    # scorer, so the others are held to the same one. What is being tested here
+    # is that the packed mmap gathers the same codes, not that the compiled
+    # kernel and numpy agree (they need not; tests/test_kernel_contract.py).
+    a, asc = idx.search(q, k=10, exact=True)
     ram = TQEIndex.open(str(p))
     mm = TQEIndex.open(str(p), mmap=True)
-    b, bsc = ram.search(q, k=10)
-    c, csc = mm.search(q, k=10)
+    b, bsc = ram.search(q, k=10, exact=True)
+    c, csc = mm.search(q, k=10, exact=True)
     np.testing.assert_array_equal(a, b)
     np.testing.assert_array_equal(a, c)  # packed mmap gathers score identically
     np.testing.assert_allclose(asc, csc, rtol=0, atol=0)
@@ -505,7 +514,10 @@ def test_cosine_unchanged_by_the_l2_refactor(tmp_path):
     single cosine result."""
     corpus = _corpus(800, dim=48)
     idx = TQEIndex.create(corpus, output_dim=32, bits=4, seed=11)
-    got, sc = idx.search(corpus[:20], k=10)
+    # Both sides on the exact scorer. Blocking changes only how many rows are
+    # held at once, so it must change nothing at all; a blocked search already
+    # implies numpy, and exact=True puts the unblocked side there too.
+    got, sc = idx.search(corpus[:20], k=10, exact=True)
     blocked, sc_b = idx.search(corpus[:20], k=10, block=256)
     np.testing.assert_array_equal(got, blocked)
     np.testing.assert_allclose(sc, sc_b, rtol=1e-5, atol=1e-6)
