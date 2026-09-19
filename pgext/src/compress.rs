@@ -280,7 +280,7 @@ pub fn compress(vec: &[f32], bits: u8, seed: u32) -> TqVector {
     // 6. Bit-pack
     let data = pack(&indices, bits);
 
-    TqVector::new(dim as u16, bits, norm, data)
+    TqVector::new(dim as u16, bits, norm, data, seed)
 }
 
 // ─── Batch Compress (amortized rotation) ─────────────────────────
@@ -334,7 +334,7 @@ pub fn compress_batch(
 
             // 6. Pack
             let data = pack(&indices, bits);
-            TqVector::new(dim as u16, bits, norm, data)
+            TqVector::new(dim as u16, bits, norm, data, seed)
         })
         .collect()
 }
@@ -356,12 +356,17 @@ pub fn decompress(tqv: &TqVector) -> Vec<f32> {
         .map(|&idx| cb[idx as usize] * scale)
         .collect();
 
-    // 3. Inverse rotation (cached per (dim, seed))
+    // 3. Inverse rotation (cached per (dim, seed)). The seed comes from the
+    // vector, not from a literal here: a vector compressed under a different
+    // basis would otherwise be read through the wrong one and produce quietly
+    // wrong values (issue #164). Rows written before the format carried a seed
+    // deserialize with LEGACY_ROTATION_SEED, which is what they used.
+    let seed = tqv.seed;
     if dim <= MAX_QR_DIM {
-        let rotation = get_rotation_cached(dim, 42);
+        let rotation = get_rotation_cached(dim, seed);
         inverse_rotation(&mut result, &rotation, dim);
     } else {
-        apply_sign_flip(&mut result, 42);
+        apply_sign_flip(&mut result, seed);
     }
 
     // 4. Scale by norm
@@ -448,6 +453,116 @@ mod tests {
         let tqv = compress(&vec, 3, 42);
         let ratio = tqv.compression_ratio();
         assert!(ratio > 8.0, "ratio was {}", ratio);
+    }
+
+    // ─── The rotation seed is part of the data (issue #164) ──────────
+
+    /// The defect: `compress` took a seed, `decompress` assumed 42, and
+    /// nothing carried it between them. A vector compressed under any other
+    /// basis came back as quietly wrong numbers with no error. It must now
+    /// round-trip under any seed.
+    #[test]
+    fn test_roundtrip_under_a_non_default_seed() {
+        let vec: Vec<f32> = (0..64).map(|i| (i as f32 * 0.37).sin()).collect();
+        for seed in [7u32, 99, 1_000_003, u32::MAX] {
+            let tqv = compress(&vec, 4, seed);
+            assert_eq!(tqv.seed, seed, "the vector must record its own seed");
+            let back = decompress(&tqv);
+            let cos = cosine(&vec, &back);
+            assert!(
+                cos > 0.95,
+                "seed {seed} round-tripped to cosine {cos}, so the basis was lost"
+            );
+        }
+    }
+
+    /// The same vector under two seeds gives two different encodings, and each
+    /// decodes correctly through its own. Before the fix the second one
+    /// decoded through seed 42 and lost its vector.
+    #[test]
+    fn test_two_seeds_each_decode_through_their_own_basis() {
+        let vec: Vec<f32> = (0..128).map(|i| (i as f32 * 0.11).cos()).collect();
+        let a = compress(&vec, 4, 42);
+        let b = compress(&vec, 4, 12345);
+        assert_ne!(a.data, b.data);
+        assert!(cosine(&vec, &decompress(&a)) > 0.95);
+        assert!(cosine(&vec, &decompress(&b)) > 0.95);
+    }
+
+    /// Reading a vector through the wrong basis is what the old decoder did to
+    /// anything not written with 42. Pinned here so the failure mode stays
+    /// visible: it is not a small error, it is a different vector.
+    #[test]
+    fn test_the_wrong_basis_destroys_the_vector() {
+        let vec: Vec<f32> = (0..128).map(|i| (i as f32 * 0.11).cos()).collect();
+        let mut tqv = compress(&vec, 4, 12345);
+        let faithful = cosine(&vec, &decompress(&tqv));
+        tqv.seed = 42; // what the decoder used to assume unconditionally
+        let wrong = cosine(&vec, &decompress(&tqv));
+        assert!(faithful > 0.95, "faithful decode was {faithful}");
+        assert!(
+            wrong < 0.5,
+            "decoding through the wrong basis gave cosine {wrong}, which is \
+             close enough to look correct; the test cannot show the hazard"
+        );
+    }
+
+    /// A row written before the format carried a seed has neither field. Serde
+    /// fills them with the legacy values, which is exactly how such a row was
+    /// encoded, so it keeps decoding correctly with no migration.
+    #[test]
+    fn test_a_legacy_row_decodes_as_seed_42() {
+        let vec: Vec<f32> = (0..64).map(|i| i as f32 * 0.1).collect();
+        let fresh = compress(&vec, 3, crate::types::LEGACY_ROTATION_SEED);
+        let legacy = crate::types::TqVector::legacy(
+            fresh.dim,
+            fresh.bits,
+            fresh.norm,
+            fresh.data.clone(),
+        );
+        assert_eq!(legacy.seed, crate::types::LEGACY_ROTATION_SEED);
+        assert_eq!(
+            legacy.format_version,
+            crate::types::LEGACY_FORMAT_VERSION
+        );
+        assert_eq!(decompress(&fresh), decompress(&legacy));
+    }
+
+    /// A vector written today declares the current format version, so a future
+    /// change to the rotation generator has something to branch on.
+    #[test]
+    fn test_a_fresh_vector_declares_the_current_format_version() {
+        let vec: Vec<f32> = (0..64).map(|i| i as f32 * 0.1).collect();
+        let tqv = compress(&vec, 3, 42);
+        assert_eq!(tqv.format_version, crate::types::FORMAT_VERSION);
+        assert!(crate::types::FORMAT_VERSION > crate::types::LEGACY_FORMAT_VERSION);
+    }
+
+    /// The batch path must record the seed too; it is the one a bulk loader
+    /// would use, and so the most likely source of rows written under a
+    /// non-default basis.
+    #[test]
+    fn test_compress_batch_records_the_seed() {
+        let dim = 64usize;
+        let vecs: Vec<Vec<f32>> = (0..3)
+            .map(|r| (0..dim).map(|i| ((r * dim + i) as f32 * 0.05).sin()).collect())
+            .collect();
+        let out = compress_batch(&vecs, 3, 777);
+        assert_eq!(out.len(), 3);
+        for (i, tqv) in out.iter().enumerate() {
+            assert_eq!(tqv.seed, 777);
+            assert!(cosine(&vecs[i], &decompress(tqv)) > 0.90);
+        }
+    }
+
+    fn cosine(a: &[f32], b: &[f32]) -> f32 {
+        let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+        let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if na < 1e-20 || nb < 1e-20 {
+            return 0.0;
+        }
+        dot / (na * nb)
     }
 
     #[test]

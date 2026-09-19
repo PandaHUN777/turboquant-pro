@@ -66,6 +66,9 @@ pub struct GpuCompressor {
     dim: usize,
     bits: u8,
     n_bounds: usize,
+    /// Rotation seed the uploaded basis was generated from; every vector this
+    /// compressor emits records it, so it can be read back (issue #164).
+    seed: u32,
 }
 
 #[cfg(feature = "gpu")]
@@ -99,7 +102,7 @@ impl GpuCompressor {
         let d_bounds = dev.htod_copy(bounds)
             .map_err(|e| format!("Upload bounds: {e}"))?;
 
-        Ok(Self { dev, d_rotation, d_bounds, dim, bits, n_bounds })
+        Ok(Self { dev, d_rotation, d_bounds, dim, bits, n_bounds, seed })
     }
 
     /// Compress a batch of vectors on GPU.
@@ -155,7 +158,13 @@ impl GpuCompressor {
         for i in 0..n_vecs {
             let idx_slice = &h_indices[i * dim..(i + 1) * dim];
             let data = crate::compress::pack_pub(idx_slice, self.bits);
-            results.push(TqVector::new(dim as u16, self.bits, h_norms[i], data));
+            results.push(TqVector::new(
+                dim as u16,
+                self.bits,
+                h_norms[i],
+                data,
+                self.seed,
+            ));
         }
 
         Ok(results)
