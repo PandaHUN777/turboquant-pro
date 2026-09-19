@@ -514,12 +514,8 @@ mod tests {
     fn test_a_legacy_row_decodes_as_seed_42() {
         let vec: Vec<f32> = (0..64).map(|i| i as f32 * 0.1).collect();
         let fresh = compress(&vec, 3, crate::types::LEGACY_ROTATION_SEED);
-        let legacy = crate::types::TqVector::legacy(
-            fresh.dim,
-            fresh.bits,
-            fresh.norm,
-            fresh.data.clone(),
-        );
+        let legacy =
+            crate::types::TqVector::legacy(fresh.dim, fresh.bits, fresh.norm, fresh.data.clone());
         assert_eq!(legacy.seed, crate::types::LEGACY_ROTATION_SEED);
         assert_eq!(legacy.format_version, crate::types::LEGACY_FORMAT_VERSION);
         assert_eq!(decompress(&fresh), decompress(&legacy));
