@@ -57,6 +57,7 @@ def parse_mem(v):
     """Kubernetes memory quantity -> bytes."""
     v = v.strip()
     units = {
+        "m": 1e-3,  # the metrics API reports some pods in milli-bytes
         "Ki": 2**10,
         "Mi": 2**20,
         "Gi": 2**30,
@@ -114,15 +115,32 @@ def requests(ns, selector):
     return out
 
 
-def usage(ns):
-    """{pod: (cpu_cores, mem_bytes)} from metrics-server."""
-    r = sh("top", "pods", "--no-headers", ns=ns)
+def parse_metrics(doc):
+    """{pod: (cpu_cores, mem_bytes)} from a metrics.k8s.io PodMetricsList, summed
+    over each pod's containers."""
     out = {}
-    for line in r.stdout.splitlines():
-        f = line.split()
-        if len(f) >= 3:
-            out[f[0]] = (parse_cpu(f[1]), parse_mem(f[2]))
+    for p in doc.get("items", []):
+        cs = p.get("containers", [])
+        out[p["metadata"]["name"]] = (
+            sum(parse_cpu(c["usage"]["cpu"]) for c in cs),
+            sum(parse_mem(c["usage"]["memory"]) for c in cs),
+        )
     return out
+
+
+def usage(ns):
+    """{pod: (cpu_cores, mem_bytes)} for every pod that has metrics.
+
+    Read from the metrics API directly, not `kubectl top pods`: `top` fails the
+    whole namespace when any pod lacks metrics (a pod that just completed does),
+    and a guard whose sampling fails sees no usage at all, so it can neither stop
+    a violator nor record what a Job used. The API returns the pods it has.
+    """
+    r = sh("get", "--raw", f"/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods", ns=ns)
+    try:
+        return parse_metrics(json.loads(r.stdout))
+    except (ValueError, KeyError):
+        return {}
 
 
 def record(path, job, mean_cpu, mean_mem, peak_mem, req_cpu, req_mem, samples):
