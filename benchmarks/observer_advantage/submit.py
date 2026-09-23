@@ -301,6 +301,16 @@ def plan(commit, phase):
             vetoes.append(f"{job_name(j)} ({cls}): {req}")
             continue
         cpu, mem = req.cpu, req.memory_gib
+        if not req.exempt:
+            # A peak sampled every 30 s misses the load spike (np.load plus the
+            # float32 copy, about 2x the corpus): a 6 GiB exact-search pod sized
+            # from a sampled 5.3 GiB peak was OOM-killed. The request the class's
+            # calibration completed at is the evidence that holds, so it is the floor.
+            mem = max(mem, int(model_gib(j) + 0.999))
+            bad = nrp_sizing.check(cpu, mem, usage)
+            if bad:
+                vetoes.append(f"{job_name(j)} ({cls}): at {mem}Gi " + "; ".join(bad))
+                continue
         if req.exempt:  # no floors apply below the exempt line, so take its ceiling
             cpu, mem = 1, int(nrp_sizing.EXEMPT_MEM_GIB)
         out.append((run_descriptor(commit, j, cpu, mem, "run"), str(req)))
