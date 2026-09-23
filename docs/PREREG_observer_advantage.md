@@ -252,3 +252,11 @@ not drafted here.
   checked on the codes themselves (`test_chunked_opq_add_is_bit_identical`). Found while
   checking the harness against the cluster's resource policy, before the submitter was
   first run.
+- **Amendment 2, 2026-09-23, after the first calibration cycle and before any hypothesis was
+  scored. Operational; no scored quantity changes.** The TQ family now searches the evaluation
+  queries in batches of 256 (`cell.TQ_QUERY_BATCH`). On NRP it scans in numpy, which scores every
+  query against a 65,536-row block at once; with all 7,000 msmarco queries its temporaries (several
+  7,000 × 65,586 arrays) exceeded a 12 GiB pod, which was OOM-killed twice. Each query's result
+  depends on that query alone, so batching leaves every id bit-identical
+  (`test_tq_query_batching_is_bit_identical`). The only cells run before this amendment are the
+  three msmarco P EXACT cells (commit `50f958a`), which contain no TQ code and are kept.

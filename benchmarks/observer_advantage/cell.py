@@ -139,14 +139,28 @@ def rr5(evalq, corpus, ids):
 # --------------------------------------------------------------------------- #
 
 
+TQ_QUERY_BATCH = 256  # queries per ADCIndex.search call (Amendment 2)
+
+
 def f_tq(ck, qk, k, b, seed, threads):
+    """TQ family. The numpy scan scores every query against a 65,536-row block
+    at once, so its temporaries grow with the number of queries: all 7,000
+    msmarco queries needed several (7,000 x 65,586) arrays and were OOM-killed at
+    12 GiB. Each query's result depends on that query alone, so searching in
+    batches bounds the temporaries and leaves every id bit-identical
+    (Amendment 2)."""
     from turboquant_pro import ADCIndex, PCAMatryoshka
 
     pca = PCAMatryoshka(input_dim=k, output_dim=k)
     pca.fit(ck[:TRAIN_ROWS])
     pipe = pca.with_quantizer(bits=b, seed=seed)
     index = ADCIndex(pipe, metric="inner_product").add(ck)
-    ids, _ = index.search(qk, k=K_TOP)
+    ids = np.concatenate(
+        [
+            index.search(qk[s : s + TQ_QUERY_BATCH], k=K_TOP)[0]
+            for s in range(0, len(qk), TQ_QUERY_BATCH)
+        ]
+    )
     shared = 4 * (k * k + k + len(index._cent))  # PCA basis, mean, centroid table
     extra = dict(scan="kernel" if index._kernel_scan() else "numpy", seeded=True)
     return ids, index.stored_bytes_per_row, shared, extra

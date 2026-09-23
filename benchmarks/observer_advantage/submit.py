@@ -95,12 +95,26 @@ def size_class(job):
     return f"{job['family']}-{'large' if hi - lo >= LARGE_ROWS else 'small'}"
 
 
+def calibrated():
+    """Calibration Jobs that already completed, from the pool runner's state."""
+    try:
+        with open(os.path.join(STATE_DIR, "oa-calibrate.json"), encoding="utf-8") as f:
+            return set(json.load(f).get("done", []))
+    except (OSError, ValueError):
+        return set()
+
+
 def calibration_jobs():
-    """The first job of each sizing class, in grid order."""
+    """For each sizing class, the first job in grid order that has not already
+    completed a calibration run. A calibration Job can finish without leaving a
+    measurement (shorter than the guard's sampling); its name cannot be reused,
+    and rerunning it would skip its finished cells and measure nothing, so the
+    class calibrates on its next member instead."""
+    done = calibrated()
     seen, out = set(), []
     for j in jobs():
         c = size_class(j)
-        if c not in seen:
+        if c not in seen and job_name(j, "calibrate") not in done:
             seen.add(c)
             out.append(j)
     return out
@@ -176,6 +190,7 @@ def code_descriptor(commit):
     )
     script = f"""set -euo pipefail
 ls -la /data/env/env.tar {arms}
+echo "results so far:"; ls /data/oa/results 2>/dev/null || true
 if [ -f {tar} ]; then echo "already staged: {tar}"; exit 0; fi
 git clone -q --filter=blob:none --no-checkout {REPO} /tmp/src
 git -C /tmp/src sparse-checkout set --no-cone {" ".join(PACKAGES)}

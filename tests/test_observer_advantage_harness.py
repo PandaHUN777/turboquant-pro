@@ -214,3 +214,19 @@ def test_chunked_opq_add_is_bit_identical():
         codes.append(faiss.vector_to_array(pq.codes).copy())
     np.testing.assert_array_equal(codes[0], codes[1])
     assert cell.opq_add_rows(128) * 128 * 256 * 4 <= cell.OPQ_TABLE_BYTES
+
+
+def test_tq_query_batching_is_bit_identical(monkeypatch):
+    """Amendment 2: TQ searches the evaluation queries in batches to bound the
+    numpy scan's temporaries. Each query's result depends on that query alone,
+    so the ids must not change with the batch size."""
+    rng = np.random.default_rng(6)
+    ck = rng.standard_normal((1200, 32)).astype(np.float32)
+    qk = rng.standard_normal((77, 32)).astype(np.float32)
+    out = []
+    for batch in (7, 10_000):
+        monkeypatch.setattr(cell, "TQ_QUERY_BATCH", batch)
+        ids, stored, _, _ = cell.f_tq(ck, qk, 32, 4, 0, 2)
+        out.append(np.asarray(ids))
+    np.testing.assert_array_equal(out[0], out[1])
+    assert out[0].shape == (77, grid.K_TOP)
