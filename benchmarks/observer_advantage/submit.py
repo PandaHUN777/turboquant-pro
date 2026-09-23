@@ -149,6 +149,19 @@ def class_usage(cls):
     )
 
 
+def exempt_class_proven(cls):
+    """True when this class fits the exempt class and one of its calibration Jobs
+    completed there. Exempt pods (<= 1 CPU, <= 2 GiB) are not held to the
+    utilization floors, so no usage measurement is needed to size them; the one
+    risk is running out of memory, which a completed exempt run rules out. A
+    fiqa calibration finishes in under a minute, before the guard's second
+    sample, so this completion is the only evidence such a class can leave."""
+    members = [j for j in jobs() if size_class(j) == cls]
+    if not members or model_gib(members[0]) > nrp_sizing.EXEMPT_MEM_GIB:
+        return False
+    return any(job_name(j, "calibrate") in calibrated() for j in members)
+
+
 def model_gib(job):
     """First-run memory request for a calibration job: the corpus as loaded (np.load plus
     the float32 copy), its KMAX projection, one k-dim codec copy of it, and 1 GiB for the
@@ -222,8 +235,8 @@ def plan(commit, phase):
         cls = size_class(j)
         usage = class_usage(cls)
         if phase == "calibrate":
-            if usage is not None:
-                continue  # already measured; the run phase sizes it
+            if usage is not None or exempt_class_proven(cls):
+                continue  # measured, or proven in the exempt class: the run phase sizes it
             if not guard_is_running():
                 vetoes.append(
                     f"{job_name(j, phase)}: unmeasured, and no fresh guard heartbeat"
@@ -238,6 +251,10 @@ def plan(commit, phase):
                 cpu, mem = WANT_CPU, int(gib + 0.999)
                 why = f"calibrates {cls} (model {gib:.1f} GiB, under the guard)"
             out.append((run_descriptor(commit, j, cpu, mem, "calibrate"), why))
+            continue
+        if usage is None and exempt_class_proven(cls):
+            why = f"exempt class: {cls} calibration completed at 1 CPU / 2 GiB"
+            out.append((run_descriptor(commit, j, 1, 2, "run"), why))
             continue
         req = nrp_sizing.request_for(usage, WANT_CPU)
         if isinstance(req, nrp_sizing.Refusal):
