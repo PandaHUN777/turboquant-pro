@@ -70,9 +70,12 @@ def code_tar(commit):
     return f"/data/oa/code/{commit}.tar"
 
 
-def preamble(commit):
+def preamble(commit, cpu):
+    """Threads follow the pod's CPU request: BLAS for the TQ scan and faiss, and
+    CB_WORKERS for consumer_basis's exact top-k, so a 1-CPU pod does not oversubscribe.
+    """
     return f"""set -euo pipefail
-export PYTHONUNBUFFERED=1 OPENBLAS_NUM_THREADS={WANT_CPU} OMP_NUM_THREADS={WANT_CPU}
+export PYTHONUNBUFFERED=1 OPENBLAS_NUM_THREADS={cpu} OMP_NUM_THREADS={cpu} CB_WORKERS={cpu}
 export TQP_COMMIT={commit}
 tar -xf /data/env/env.tar -C /tmp venv
 mkdir -p /tmp/code && tar -xf {code_tar(commit)} -C /tmp/code
@@ -168,7 +171,11 @@ def descriptor(name, script, cpu, mem_gib, role):
 
 def code_descriptor(commit):
     tar = code_tar(commit)
+    arms = " ".join(
+        f"/data/cb/{a}/hashes.json" for a in sorted({j["arm"] for j in jobs()})
+    )
     script = f"""set -euo pipefail
+ls -la /data/env/env.tar {arms}
 if [ -f {tar} ]; then echo "already staged: {tar}"; exit 0; fi
 git clone -q --filter=blob:none --no-checkout {REPO} /tmp/src
 git -C /tmp/src sparse-checkout set --no-cone {" ".join(PACKAGES)}
@@ -183,7 +190,7 @@ echo "staged {tar}"
 
 
 def run_descriptor(commit, job, cpu, mem_gib, role):
-    script = preamble(commit) + (
+    script = preamble(commit, cpu) + (
         f"python -m observer_advantage.cell --job-id {job['job_id']} "
         f"--root /data/cb --out /data/oa/results --threads {cpu}\n"
     )
@@ -207,13 +214,15 @@ def plan(commit, phase):
                     f"{job_name(j, phase)}: unmeasured, and no fresh guard heartbeat"
                 )
                 continue
-            mem = int(model_gib(j) + 0.999)
-            out.append(
-                (
-                    run_descriptor(commit, j, WANT_CPU, mem, "calibrate"),
-                    f"calibrates {cls}",
-                )
-            )
+            gib = model_gib(j)
+            if gib <= nrp_sizing.EXEMPT_MEM_GIB:
+                # policy: a cell that fits 1 CPU / 2 GiB goes in the exempt class
+                cpu, mem = 1, 2
+                why = f"calibrates {cls} (exempt, model {gib:.1f} GiB)"
+            else:
+                cpu, mem = WANT_CPU, int(gib + 0.999)
+                why = f"calibrates {cls} (model {gib:.1f} GiB, under the guard)"
+            out.append((run_descriptor(commit, j, cpu, mem, "calibrate"), why))
             continue
         req = nrp_sizing.request_for(usage, WANT_CPU)
         if isinstance(req, nrp_sizing.Refusal):
