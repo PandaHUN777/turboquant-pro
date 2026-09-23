@@ -193,3 +193,24 @@ def test_faiss_families_run():
         assert (np.asarray(ids) >= 0).all()
         assert stored == want_bytes if want_bytes else stored > 64 * 2 // 8
         assert extra["seeded"] is (fam == "OPQ")
+
+
+@pytest.mark.skipif(find_spec("faiss") is None, reason="faiss not installed")
+def test_chunked_opq_add_is_bit_identical():
+    """Amendment 1: adding in chunks bounds faiss's distance table and changes no
+    code. Checked on the codes themselves, with a chunk far smaller than the data."""
+    import faiss
+
+    rng = np.random.default_rng(4)
+    x = rng.standard_normal((5000, 32)).astype(np.float32)
+    codes = []
+    for step in (len(x), 777):
+        index = faiss.index_factory(32, "OPQ8,PQ8x8", faiss.METRIC_INNER_PRODUCT)
+        faiss.downcast_index(index.index).pq.cp.seed = 0
+        index.train(x)
+        for s in range(0, len(x), step):
+            index.add(x[s : s + step])
+        pq = faiss.downcast_index(index.index)
+        codes.append(faiss.vector_to_array(pq.codes).copy())
+    np.testing.assert_array_equal(codes[0], codes[1])
+    assert cell.opq_add_rows(128) * 128 * 256 * 4 <= cell.OPQ_TABLE_BYTES

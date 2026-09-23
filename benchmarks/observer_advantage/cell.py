@@ -167,6 +167,17 @@ def f_rbq(ck, qk, k, b, seed, threads):
     return ids, int(rq.code_size), 4 * k, extra  # shared: the centroid
 
 
+OPQ_TABLE_BYTES = 2**29  # bound on faiss's per-call PQ distance table
+
+
+def opq_add_rows(m):
+    """Rows per ``index.add`` call. faiss encodes a call's rows through a
+    ``rows x m x 256`` float distance table in blocks of 262,144 rows, 34 GiB at
+    m = 128. Codes are computed per vector, so chunking the add bounds the table
+    and leaves every code, and hence every result, bit-identical (Amendment 1)."""
+    return max(1, OPQ_TABLE_BYTES // (m * 256 * 4))
+
+
 def f_opq(ck, qk, k, b, seed, threads):
     import faiss
     from rabitq_public.cell import _faiss
@@ -176,7 +187,9 @@ def f_opq(ck, qk, k, b, seed, threads):
     index = faiss.index_factory(k, f"OPQ{m},PQ{m}x8", faiss.METRIC_INNER_PRODUCT)
     faiss.downcast_index(index.index).pq.cp.seed = seed
     index.train(ck[:TRAIN_ROWS])
-    index.add(ck)
+    step = opq_add_rows(m)
+    for s in range(0, len(ck), step):
+        index.add(ck[s : s + step])
     _, ids = index.search(qk, K_TOP)
     shared = 4 * (256 * k + k * k)  # PQ codebooks, OPQ rotation
     return ids, m, shared, dict(scan="faiss", m=m, seeded=True)

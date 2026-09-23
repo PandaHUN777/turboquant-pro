@@ -244,4 +244,11 @@ not drafted here.
 
 ## 9. Amendment log
 
-(none)
+- **Amendment 1, 2026-09-23, before any cell ran on a real arm. Operational; no scored quantity
+  changes.** The OPQ family now adds rows to its index in chunks (`cell.opq_add_rows`). faiss
+  encodes a call's rows through a `rows × m × 256` float distance table in blocks of 262,144
+  rows, which is 34 GiB at m = 128 and would kill any compliant pod. Codes are computed per
+  vector, so chunking bounds the table at 512 MiB and leaves every code bit-identical,
+  checked on the codes themselves (`test_chunked_opq_add_is_bit_identical`). Found while
+  checking the harness against the cluster's resource policy, before the submitter was
+  first run.
