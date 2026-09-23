@@ -95,6 +95,33 @@ def size_class(job):
     return f"{job['family']}-{'large' if hi - lo >= LARGE_ROWS else 'small'}"
 
 
+def calibration_jobs_on_cluster():
+    """Names of calibration Jobs that exist on the cluster in any state. The run
+    phase leaves their grid jobs to them: a finished one wrote its cells, and a
+    running one is writing them."""
+    import subprocess
+
+    r = subprocess.run(
+        [
+            "kubectl",
+            "-n",
+            NS,
+            "get",
+            "jobs",
+            "-l",
+            "atlas.io/role=calibrate",
+            "-o",
+            "jsonpath={.items[*].metadata.name}",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    if r.returncode != 0:
+        raise SystemExit(f"cannot list calibration Jobs: {r.stderr.strip()}")
+    return set(r.stdout.split())
+
+
 def calibrated():
     """Calibration Jobs that already completed, from the pool runner's state."""
     try:
@@ -147,6 +174,12 @@ def class_usage(cls):
         mean_mem_gib=min(o["mean_mem_gib"] for o in rows),
         peak_mem_gib=max(o.get("peak_mem_gib") or o["mean_mem_gib"] for o in rows),
     )
+
+
+def exempt_sized(cls):
+    """True when this class's model fits the exempt class, so it was calibrated there."""
+    members = [j for j in jobs() if size_class(j) == cls]
+    return bool(members) and model_gib(members[0]) <= nrp_sizing.EXEMPT_MEM_GIB
 
 
 def exempt_class_proven(cls):
@@ -232,9 +265,9 @@ def plan(commit, phase):
     out, vetoes = [], []
     if phase == "calibrate":
         todo = calibration_jobs()
-    else:  # a Job whose calibration completed has written every one of its cells
-        done = calibrated()
-        todo = [j for j in jobs() if job_name(j, "calibrate") not in done]
+    else:  # a calibration Job has written, or is writing, its grid job's cells
+        taken = calibrated() | calibration_jobs_on_cluster()
+        todo = [j for j in jobs() if job_name(j, "calibrate") not in taken]
     for j in todo:
         cls = size_class(j)
         usage = class_usage(cls)
@@ -256,17 +289,21 @@ def plan(commit, phase):
                 why = f"calibrates {cls} (model {gib:.1f} GiB, under the guard)"
             out.append((run_descriptor(commit, j, cpu, mem, "calibrate"), why))
             continue
-        if usage is None and exempt_class_proven(cls):
-            why = f"exempt class: {cls} calibration completed at 1 CPU / 2 GiB"
+        if exempt_sized(cls) and (usage is not None or exempt_class_proven(cls)):
+            # Calibrated in the exempt class, so it runs there: a pod capped at
+            # 1 CPU reads 1 core whatever it could use, and a measurement taken at
+            # a cap says nothing about behaviour above it.
+            why = f"exempt class: {cls} was calibrated at 1 CPU / 2 GiB"
             out.append((run_descriptor(commit, j, 1, 2, "run"), why))
             continue
         req = nrp_sizing.request_for(usage, WANT_CPU)
         if isinstance(req, nrp_sizing.Refusal):
             vetoes.append(f"{job_name(j)} ({cls}): {req}")
             continue
-        out.append(
-            (run_descriptor(commit, j, req.cpu, req.memory_gib, "run"), str(req))
-        )
+        cpu, mem = req.cpu, req.memory_gib
+        if req.exempt:  # no floors apply below the exempt line, so take its ceiling
+            cpu, mem = 1, int(nrp_sizing.EXEMPT_MEM_GIB)
+        out.append((run_descriptor(commit, j, cpu, mem, "run"), str(req)))
     if vetoes:
         raise SystemExit("PREFLIGHT VETO\n  " + "\n  ".join(vetoes))
     return out
