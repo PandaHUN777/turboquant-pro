@@ -41,6 +41,9 @@ def sh(*args, ns):
     )
 
 
+RECORD_MIN_SAMPLES = 2  # samples before a Job's usage is recorded (not judged)
+
+
 def parse_cpu(v):
     """Kubernetes CPU quantity -> cores."""
     v = v.strip()
@@ -143,6 +146,32 @@ def usage(ns):
         return {}
 
 
+def assess(h, age, req_cpu, req_mem, *, grace, window, floor):
+    """(measured, low) for one pod's recent samples ``h`` of (cores, bytes).
+
+    Measure early, judge late. ``measured`` = (mean cores, mean bytes, peak bytes)
+    as soon as RECORD_MIN_SAMPLES exist, so a Job shorter than the grace period
+    still leaves a measurement and its class can be sized. ``low`` lists floor
+    violations only once the pod is past ``grace`` with a full ``window``;
+    otherwise it is empty.
+    """
+    if len(h) < RECORD_MIN_SAMPLES:
+        return None, []
+    mc = sum(x[0] for x in h) / len(h)
+    mm = sum(x[1] for x in h) / len(h)
+    measured = (mc, mm, max(x[1] for x in h))
+    if age < grace or len(h) < window:
+        return measured, []
+    low = []
+    if req_cpu > EXEMPT_CPU and mc < floor * req_cpu:
+        low.append(f"cpu {mc:.2f}/{req_cpu:g} cores = {100 * mc / req_cpu:.0f}%")
+    if req_mem > EXEMPT_MEM and mm < floor * req_mem:
+        low.append(
+            f"mem {mm / 2**30:.1f}/{req_mem / 2**30:.1f} GiB = {100 * mm / req_mem:.0f}%"
+        )
+    return measured, low
+
+
 def record(path, job, mean_cpu, mean_mem, peak_mem, req_cpu, req_mem, samples):
     """Merge one Job's measured usage into the observations file the submitters read.
 
@@ -218,22 +247,13 @@ def main():
         for pod, (rc, rm, job, age) in sorted(req.items()):
             if pod in use:
                 hist[pod].append(use[pod])
-            h = hist[pod]
-            if age < a.grace or len(h) < a.window or job in acted:
+            if job in acted:
                 continue
-            mc = sum(x[0] for x in h) / len(h)
-            mm = sum(x[1] for x in h) / len(h)
-            if a.observations and job:
-                record(
-                    a.observations, job, mc, mm, max(x[1] for x in h), rc, rm, len(h)
-                )
-            low = []
-            if rc > EXEMPT_CPU and mc < a.floor * rc:
-                low.append(f"cpu {mc:.2f}/{rc:g} cores = {100 * mc / rc:.0f}%")
-            if rm > EXEMPT_MEM and mm < a.floor * rm:
-                low.append(
-                    f"mem {mm / 2**30:.1f}/{rm / 2**30:.1f} GiB = {100 * mm / rm:.0f}%"
-                )
+            measured, low = assess(
+                hist[pod], age, rc, rm, grace=a.grace, window=a.window, floor=a.floor
+            )
+            if measured and a.observations and job:
+                record(a.observations, job, *measured, rc, rm, len(hist[pod]))
             if not low:
                 continue
             stamp = time.strftime("%FT%TZ", time.gmtime())
