@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .metrics import exact_scores
+
 
 class NpyOriginalStore:
     """Cold-tier original vectors as a memory-mapped ``(N, dim)`` ``.npy``, addressed by
@@ -72,11 +74,11 @@ def rerank_candidates(
     """Exact-rescore the shortlist against cold-tier originals; return the top-``k``.
 
     ``cand_ids`` is ``(nq, m)`` global ids (``-1`` = padding) — the wide ADC shortlist.
-    ``store`` is a :class:`NpyOriginalStore` (or any ``fetch(ids)`` callable). It uses
-    the index's metric: cosine (normalize both, ``orig·q``) or ``l2`` (negative sqdist),
-    matching :meth:`TQEIndex.search`'s rerank. The whole batch's *unique* candidate ids
-    are fetched in **one** cold-tier read, so overlapping shortlists share the fetch —
-    the read is ``O(unique candidates)``, not ``O(nq · m)``."""
+    ``store`` is a :class:`NpyOriginalStore` (or any ``fetch(ids)`` callable). It scores
+    in the index's metric through :func:`turboquant_pro.metrics.exact_scores`, the same
+    definition :meth:`TQEIndex.search`'s rerank uses. The whole batch's *unique*
+    candidate ids are fetched in **one** cold-tier read, so overlapping shortlists
+    share the fetch — the read is ``O(unique candidates)``, not ``O(nq · m)``."""
     fetch = _as_fetch(store)
     q = np.asarray(queries, dtype=np.float32)
     if q.ndim == 1:
@@ -96,10 +98,6 @@ def rerank_candidates(
         np.float32
     )  # one cold-tier read for the batch
     pos = {int(x): i for i, x in enumerate(uids.tolist())}
-    qn = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-30)
-    on = None
-    if metric != "l2":
-        on = orig / np.maximum(np.linalg.norm(orig, axis=1, keepdims=True), 1e-30)
 
     for r in range(nq):
         ids_r = cand_ids[r][valid[r]]
@@ -108,11 +106,8 @@ def rerank_candidates(
         rows = np.fromiter(
             (pos[int(i)] for i in ids_r.tolist()), dtype=np.int64, count=len(ids_r)
         )
-        if metric == "l2":
-            exact = -((orig[rows] - q[r]) ** 2).sum(axis=1)
-        else:
-            exact = on[rows] @ qn[r]
-        order = np.argsort(-exact)[:k]
+        exact = exact_scores(q[r : r + 1], orig[rows], metric)[0]
+        order = np.argsort(-exact, kind="stable")[:k]
         sel = ids_r[order]
         out_ids[r, : len(sel)] = sel
         out_sc[r, : len(sel)] = exact[order].astype(np.float32)

@@ -57,6 +57,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from .metrics import exact_scores
 from .plugins import (
     TARGET_EMBEDDING,
     TARGET_KV_KEY,
@@ -247,11 +248,6 @@ def _as_2d(x: np.ndarray) -> np.ndarray:
     return a.reshape(-1, a.shape[-1])
 
 
-def _normalize(x: np.ndarray) -> np.ndarray:
-    n = np.linalg.norm(x, axis=1, keepdims=True)
-    return x / np.maximum(n, 1e-30)
-
-
 def row_cosine(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
     """Per-row cosine similarity. A diagnostic, never an acceptance signal."""
     a = _as_2d(original)
@@ -263,20 +259,7 @@ def row_cosine(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
     return num / np.maximum(den, 1e-30)
 
 
-def _scores(queries: np.ndarray, corpus: np.ndarray, metric: str) -> np.ndarray:
-    """(n_q, n_c) similarity where larger is nearer, for every metric."""
-    if metric == "inner_product":
-        return queries @ corpus.T
-    if metric == "cosine":
-        return _normalize(queries) @ _normalize(corpus).T
-    if metric == "l2":
-        d2 = (
-            (queries**2).sum(axis=1)[:, None]
-            - 2.0 * (queries @ corpus.T)
-            + (corpus**2).sum(axis=1)[None, :]
-        )
-        return -np.maximum(d2, 0.0)
-    raise ValueError(f"unknown retrieval metric {metric!r}")
+_scores = exact_scores  # the one definition, in turboquant_pro.metrics
 
 
 def _topk(scores: np.ndarray, k: int) -> np.ndarray:

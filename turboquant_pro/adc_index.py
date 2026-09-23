@@ -10,8 +10,10 @@ Example
 -------
 ::
 
-    pca = PCAMatryoshka(input_dim=768, output_dim=256).fit(train)
+    pca = PCAMatryoshka(input_dim=768, output_dim=256)
+    pca.fit(train)                                      # returns a PCAFitResult
     index = ADCIndex(pca.with_quantizer(bits=3)).add(corpus)
+    mips = ADCIndex(pca.with_quantizer(bits=3), metric="inner_product").add(corpus)
     idx, scores = index.search(queries, k=10)          # fast, compressed
     idx = index.search(queries, k=10, rerank=5, originals=corpus)  # exact rerank
 
@@ -39,6 +41,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import _adc
+from .metrics import COSINE, INNER_PRODUCT, L2, check_metric, exact_scores
 from .packed_codes import BlockedCodes, PackedCodes
 from .pca import EigenweightedPipeline, PCAMatryoshkaPipeline
 
@@ -61,20 +64,25 @@ def score_block(
     ``adc`` is ``(nq, m)`` = ``q_rot @ cent[codes].T``; ``qbias`` is ``(nq,)``;
     ``cnorm``/``vrnorm`` are ``(m,)`` per stored row.
 
-    ``q.recon = qbias + cnorm * adc`` in both metrics — what differs is only
-    what is done with it:
+    ``q.recon = qbias + cnorm * adc`` in every metric (with ``q`` unit under
+    cosine, as given otherwise). The three metrics are three functions of that
+    inner product and ``||recon||``:
 
-    * **cosine** — divide by ``||recon||``, which is stored directly as
+    * **inner_product**: ``q.recon`` itself.
+    * **cosine**: divide by ``||recon||``, which is stored directly as
       ``vrnorm = 1/||recon||``.
-    * **l2** — rank by ``-||q-recon||^2 = 2 q.recon - ||recon||^2`` after
+    * **l2**: rank by ``-||q-recon||^2 = 2 q.recon - ||recon||^2`` after
       dropping the per-query constant ``||q||^2``. ``||recon||^2`` is
-      recovered as ``1/vrnorm^2``, so L2 needs **no extra stored bytes**.
+      recovered as ``1/vrnorm^2``.
 
-    Defining this once is deliberate: the flat, blocked, IVF and sharded paths
-    must not be able to disagree about what a score is.
+    None of them needs a stored byte beyond the codes, ``cnorm`` and
+    ``vrnorm``. Defining this once is deliberate: the flat, blocked, IVF and
+    sharded paths must not be able to disagree about what a score is.
     """
     inner = qbias[:, None] + cnorm[None, :] * adc
-    if metric == "l2":
+    if metric == INNER_PRODUCT:
+        return inner
+    if metric == L2:
         recon_sq = 1.0 / np.maximum(np.asarray(vrnorm, dtype=np.float32), 1e-30) ** 2
         return 2.0 * inner - recon_sq[None, :]
     return inner * vrnorm[None, :]
@@ -339,15 +347,20 @@ class ADCIndex:
     angular noise into the quantized direction and measurably lowers retrieval recall
     (~0.82 -> 0.71 recall@10 on LaBSE at 384-d / 3-bit). ``whiten=True`` is supported
     and now scored correctly, but it is a worse operating point for search.
+
+    ``metric`` is one of :data:`turboquant_pro.metrics.METRICS`. Every metric
+    scores the query against the reconstruction in the input space. Use
+    ``"inner_product"`` when magnitudes carry ranking information: a
+    maximum-inner-product consumer, or queries and rows that went through
+    different linear maps (a two-map consumer basis), where cosine discards a
+    scale the score depends on.
     """
 
-    def __init__(self, pipeline: PCAMatryoshkaPipeline, metric: str = "cosine"):
+    def __init__(self, pipeline: PCAMatryoshkaPipeline, metric: str = COSINE):
         pca = pipeline.pca
         if not pca.is_fitted:
             raise ValueError("pipeline.pca must be fitted before building an ADCIndex")
-        if metric not in ("cosine", "l2"):
-            raise ValueError(f"metric must be 'cosine' or 'l2', got {metric!r}")
-        self._metric = metric
+        self._metric = check_metric(metric)
         self._pca = pca
         self._coder = _coder_for(pipeline)
         self._tq = getattr(pipeline, "quantizer", None)  # None when segmented
@@ -380,9 +393,10 @@ class ADCIndex:
         self._segw_parts = _Parts()
         self._freq = None
         self._freq_key = None
+        self._unit_scale: np.ndarray | None = None  # inner product's kernel scale
 
     # ------------------------------------------------------------------ #
-    # Storage                                                            #
+    # Storage                                                         #
     # ------------------------------------------------------------------ #
     @property
     def uses_kernel(self) -> bool:
@@ -566,12 +580,13 @@ class ADCIndex:
 
         Under ``cosine`` the query is normalized (the score is a cosine, so the
         query's magnitude is irrelevant and dividing it out early is cheapest).
-        Under ``l2`` it must **not** be: ``-||q-recon||^2`` expands to
-        ``2 q.recon - ||recon||^2`` (dropping the per-query constant
-        ``||q||^2``), and that inner product is with the *un-normalized* query.
+        Under ``inner_product`` and ``l2`` it must **not** be: both score
+        ``q.recon`` with the query as given (``l2`` after expanding
+        ``-||q-recon||^2`` to ``2 q.recon - ||recon||^2`` and dropping the
+        per-query constant ``||q||^2``).
         """
         q = np.asarray(queries, dtype=np.float32)
-        qn = q if self._metric == "l2" else _normalize(q)
+        qn = _normalize(q) if self._metric == COSINE else q
         qt = (qn @ self._comp.T).astype(np.float32)
         if self._whiten:
             # Match the un-whitened reconstruction: the DB codes carry the whitened
@@ -582,13 +597,29 @@ class ADCIndex:
         return q_rot, qbias
 
     def _kernel_scan(self) -> bool:
-        """The compiled kernel scans this index: cosine, every chunk blocked."""
+        """The compiled kernel scans this index: cosine or inner product, every
+        chunk blocked."""
         return (
             self._kernel is not None
-            and self._metric == "cosine"
+            and self._metric in (COSINE, INNER_PRODUCT)
             and hasattr(self._kernel, "search_chunks")
             and all(c.scannable for c in self._chunks)
         )
+
+    def _row_scale(self) -> np.ndarray:
+        """The per-row factor the kernel multiplies ``q.recon`` by.
+
+        The kernel scores ``(bias + cnorm * lookup_sum) * scale[n]``, which is
+        :func:`score_block` for cosine with ``scale = vrnorm``, and for inner
+        product with ``scale = 1``. So inner product is the cosine scan with a
+        unit denominator: no second kernel, and the pruned scan's bound, which
+        is monotone in the lookup sum for any positive scale, stays valid.
+        """
+        if self._metric == COSINE:
+            return self._vrnorm
+        if self._unit_scale is None or len(self._unit_scale) != self.size:
+            self._unit_scale = np.ones(self.size, dtype=np.float32)
+        return self._unit_scale
 
     def _kernel_chunks(self):
         blocks = [c.codes.blocked for c in self._chunks]
@@ -620,7 +651,7 @@ class ADCIndex:
             self._coder.nsym,
             self._coder.segs,
             self._cnorm,
-            self._vrnorm,
+            self._row_scale(),
             self._segw,
             np.ascontiguousarray(probes, dtype=np.int32),
             np.ascontiguousarray(biases, dtype=np.float32),
@@ -639,16 +670,18 @@ class ADCIndex:
         """Return ``(indices, scores)`` for the top-``k`` matches per query.
 
         If ``rerank > 0`` and ``originals`` (the fp32 corpus) is given, the top
-        ``k * rerank`` ADC candidates are rescored by exact inner product and
-        the best ``k`` returned (indices only).
+        ``k * rerank`` ADC candidates are rescored exactly in the index's metric
+        (:func:`turboquant_pro.metrics.exact_scores`) and the best ``k`` returned
+        (indices only).
 
         ``prune=(prefix_fraction, z)`` (experimental) uses the compiled two-pass
         scan: it sums the first ``prefix_fraction`` of the dims for every vector,
         extrapolates the rest from that prefix, and finishes only vectors whose
         upper bound can reach the top-k. Returned scores are exact; a true top-k
         vector can be pruned with a probability that shrinks as ``z`` grows. It
-        applies to the cosine metric with the kernel compiled, one chunk, and a
-        uniform quantizer of at most 4 bits; otherwise the unpruned path runs.
+        applies to the cosine and inner-product metrics with the kernel
+        compiled, one chunk, and a uniform quantizer of at most 4 bits;
+        otherwise the unpruned path runs.
         The per-query survivor counts of the last pruned search are kept in
         ``last_survivors``.
         """
@@ -657,10 +690,10 @@ class ADCIndex:
         q_rot, qbias = self._query_terms(queries)
         kk = k * max(rerank, 1) if rerank else k
         if not self._kernel_scan():
-            # The kernel implements the cosine score only; l2, codes above 4 bits
-            # and memory-mapped stores take the numpy path, which is exact (and
-            # identical in ranking to the blocked, IVF and sharded paths, which
-            # share score_block).
+            # The kernel scores cosine and inner product (_row_scale); l2, codes
+            # above 4 bits and memory-mapped stores take the numpy path, which is
+            # exact (and identical in ranking to the blocked, IVF and sharded
+            # paths, which share score_block).
             idx, sc = self._search_numpy(q_rot, qbias, kk)
         elif (
             prune is not None
@@ -679,7 +712,7 @@ class ADCIndex:
                 self._coder.tables,
                 self._coder.nsym,
                 self._cnorm,
-                self._vrnorm,
+                self._row_scale(),
                 qbias,
                 self.code_frequencies(),
                 kk,
@@ -780,6 +813,9 @@ class ADCIndex:
         )
 
     def _rerank(self, cand, queries, originals, k):
+        """Reorder each query's candidates by the exact score in this index's
+        metric. A raw dot product would be the inner-product order under every
+        metric, which reorders a cosine or l2 index whose rows are not unit."""
         q = np.asarray(queries, dtype=np.float32)
         originals = np.asarray(originals, dtype=np.float32)
         out = np.full((len(q), k), -1, dtype=np.int64)
@@ -787,7 +823,7 @@ class ADCIndex:
             c = cand[i][cand[i] >= 0]
             if len(c) == 0:
                 continue
-            s = originals[c] @ q[i]
-            top = c[np.argsort(-s)[:k]]
+            s = exact_scores(q[i : i + 1], originals[c], self._metric)[0]
+            top = c[np.argsort(-s, kind="stable")[:k]]
             out[i, : len(top)] = top
         return out

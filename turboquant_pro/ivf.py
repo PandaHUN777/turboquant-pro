@@ -40,6 +40,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .adc_index import ADCIndex, _normalize
+from .metrics import COSINE
 from .pca import PCAMatryoshka
 
 
@@ -566,7 +567,19 @@ class IVFIndex:
         max_cells: int | None = None,
         return_stats: bool = False,
     ):
-        """Top-``k`` per query; see the class docstring for ``nprobe`` and ``bound``."""
+        """Top-``k`` per query; see the class docstring for ``nprobe`` and ``bound``.
+
+        The adaptive stop (``nprobe=None``) compares a bound on the cosine with
+        the incumbent k-th score, which is meaningful only when the score is a
+        cosine. Under ``inner_product`` or ``l2`` it is refused; a fixed
+        ``nprobe`` still works, with cells ordered by the same angular bound
+        and scored in the index's metric.
+        """
+        if nprobe is None and self._adc._metric != COSINE:
+            raise ValueError(
+                "adaptive probing (nprobe=None) bounds a cosine and cannot stop "
+                f"a {self._adc._metric!r} search correctly; pass nprobe"
+            )
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
@@ -631,15 +644,9 @@ class IVFIndex:
             m *= 2
 
     def _rerank(self, ids, q, k):
-        out = np.full((len(q), k), -1, dtype=np.int64)
-        for i in range(len(q)):
-            c = ids[i][ids[i] >= 0]
-            if not len(c):
-                continue
-            s = self._originals[c] @ q[i]
-            top = c[np.argsort(-s)[:k]]
-            out[i, : len(top)] = top
-        return out
+        # ids are rows of the originals, so the flat index's metric-exact rerank
+        # applies unchanged; one definition of what reranking means.
+        return self._adc._rerank(ids, q, self._originals, k)
 
     # ------------------------------------------------------------------ #
     # Introspection                                                      #

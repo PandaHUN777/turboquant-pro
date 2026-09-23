@@ -46,6 +46,7 @@ from turboquant_pro.certify_report import (
     _verify_schema,
     _verify_summary,
 )
+from turboquant_pro.metrics import METRICS
 
 
 # ------------------------------------------------------------------ commands
@@ -2718,7 +2719,7 @@ def _add_index_parser(sub: argparse._SubParsersAction) -> None:
     ic.add_argument("--seed", type=int, default=42, help="determinism seed")
     ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
     ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
-    ic.add_argument("--metric", default="cosine", choices=["cosine", "l2"])
+    ic.add_argument("--metric", default="cosine", choices=list(METRICS))
     ic.add_argument(
         "--no-originals",
         action="store_true",
