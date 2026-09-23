@@ -230,7 +230,11 @@ def plan(commit, phase):
     if phase == "code":
         return [(code_descriptor(commit), "exempt class (1 CPU, 2 GiB)")]
     out, vetoes = [], []
-    todo = calibration_jobs() if phase == "calibrate" else jobs()
+    if phase == "calibrate":
+        todo = calibration_jobs()
+    else:  # a Job whose calibration completed has written every one of its cells
+        done = calibrated()
+        todo = [j for j in jobs() if job_name(j, "calibrate") not in done]
     for j in todo:
         cls = size_class(j)
         usage = class_usage(cls)
