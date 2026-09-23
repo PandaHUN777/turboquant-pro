@@ -254,7 +254,8 @@ class PCAMatryoshka:
         Use this to pick ``output_dim`` from the data rather than a fixed guess::
 
             d = PCAMatryoshka.suggest_output_dim(corpus, target_variance=0.95)
-            pca = PCAMatryoshka(input_dim=corpus.shape[1], output_dim=d).fit(corpus)
+            pca = PCAMatryoshka(input_dim=corpus.shape[1], output_dim=d)
+            pca.fit(corpus)
 
         Args:
             embeddings: 2D array ``(n, input_dim)``.
