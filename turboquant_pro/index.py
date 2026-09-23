@@ -42,6 +42,7 @@ from .index_file import (
     read_section,
     write_container,
 )
+from .metrics import exact_scores
 from .packed_codes import (
     PackedCodes,
     pack_rows,
@@ -505,8 +506,8 @@ class TQEIndex:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Top-``k`` external ids per query, excluding tombstoned rows.
 
-        With ``rerank > 0`` the top ``k * rerank`` ADC candidates are rescored by
-        exact inner product (against stored originals if kept, else the
+        With ``rerank > 0`` the top ``k * rerank`` ADC candidates are rescored
+        exactly in the index's metric (against stored originals if kept, else the
         compressed reconstruction) — the high-recall two-stage path.
 
         Pass a :class:`~turboquant_pro.TQPRuntimePolicy` as ``policy`` for
@@ -558,9 +559,8 @@ class TQEIndex:
         out_ids = np.full((len(q), k), -1, dtype=np.int64)
         out_sc = np.full((len(q), k), np.nan, dtype=np.float32)
         rr_src = self._originals if (rerank and self._originals is not None) else None
-        # Rerank in the index's own metric (cosine by default), not raw dot —
-        # the corpus need not be unit-norm.
-        qn = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-30)
+        # Rerank in the index's own metric, not raw dot: the corpus need not be
+        # unit-norm.
         tomb = self._tomb
         for r in range(len(q)):
             pos = cand_pos[r]
@@ -575,14 +575,8 @@ class TQEIndex:
                     if rr_src is not None
                     else self._reconstruct_rows(keep)
                 )
-                if self._metric == "l2":
-                    exact = -((cand - q[r]) ** 2).sum(axis=1)
-                else:  # cosine
-                    cn = cand / np.maximum(
-                        np.linalg.norm(cand, axis=1, keepdims=True), 1e-30
-                    )
-                    exact = cn @ qn[r]
-                order = np.argsort(-exact)[:k]
+                exact = exact_scores(q[r : r + 1], cand, self._metric)[0]
+                order = np.argsort(-exact, kind="stable")[:k]
                 sel = keep[order]
                 sels = exact[order].astype(np.float32)
             else:

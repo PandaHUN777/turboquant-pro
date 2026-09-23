@@ -41,12 +41,13 @@ The central, best-validated contribution — compress a corpus and search the co
 ```python
 from turboquant_pro import PCAMatryoshka, ADCIndex
 
-pca = PCAMatryoshka(input_dim=768, output_dim=256).fit(train_vectors)
+pca = PCAMatryoshka(input_dim=768, output_dim=256)
+pca.fit(train_vectors)                                # fits in place; returns a PCAFitResult
 pipeline = pca.with_quantizer(bits=3)                 # PCA rotate/truncate + 3-bit TurboQuant
 index = ADCIndex(pipeline).add(corpus)                # compressed-domain index (100 B/vec: 256×3 bits + a 4-byte norm)
 
 ids, scores = index.search(queries, k=10)                          # single-pass, fast
-ids, scores = index.search(queries, k=10, rerank=5, originals=corpus)   # exact rerank → ~0.9997
+ids = index.search(queries, k=10, rerank=5, originals=corpus)   # exact rerank → ~0.9997 (ids only)
 ```
 
 `PCAMatryoshka.suggest_output_dim(corpus, target_variance=0.95)` picks the truncation dim from the data's spectrum. Two more ways to spend the same bytes:

@@ -22,7 +22,8 @@ from turboquant_pro import PCAMatryoshka, ADCIndex, certificate_from_embeddings
 corpus  = np.load("corpus.npy")        # (N, D) float32
 queries = np.load("queries.npy")       # (Q, D) float32
 
-pca  = PCAMatryoshka(input_dim=corpus.shape[1], output_dim=corpus.shape[1]).fit(corpus)
+pca  = PCAMatryoshka(input_dim=corpus.shape[1], output_dim=corpus.shape[1])
+pca.fit(corpus)                        # fits in place; returns a PCAFitResult
 pipe = pca.with_quantizer(bits=3)      # ~10x smaller
 index = ADCIndex(pipe).add(corpus)
 

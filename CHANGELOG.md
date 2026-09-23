@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### 2026-09-22 — inner-product scoring for the ADC scan
+- **`ADCIndex(pipeline, metric="inner_product")`** scores `q . recon`, with the
+  query as given and the reconstruction in the input space. Cosine discards
+  the query's and the row's magnitudes, which is wrong for a
+  maximum-inner-product consumer and for queries and rows that pass through
+  different linear maps (the two-map consumer basis of
+  `docs/PREREG_consumer_basis.md`, whose maps do not preserve norms). No new
+  stored bytes: the three metrics are three functions of `q . recon` and
+  `||recon||`, all in `score_block`. The compiled kernel scans inner product
+  as the cosine scan with a unit denominator, so there is no second kernel and
+  the pruned scan's bound stays valid. `TQEIndex`, `ShardedIndex` and
+  `tqp index create --metric inner_product` accept it.
+- **`turboquant_pro.metrics`** defines the three metrics once (`METRICS`,
+  `check_metric`, `exact_scores`). The consumer registry, and every exact
+  rerank, now import that one definition instead of each writing its own.
+- **Exact rerank orders by the index's metric everywhere.** `ADCIndex.search`
+  and `IVFIndex.search` reranked by raw dot product whatever the metric, which
+  reorders a cosine or l2 index whose rows are not unit norm; they now match
+  `TQEIndex` and the cold-tier rerank. Unit-norm corpora are unaffected.
+- **`IVFIndex.search(nprobe=None)` refuses a non-cosine index.** The adaptive
+  stop compares a bound on the cosine with the incumbent score, which is
+  meaningful only when the score is a cosine. IVF's builders create cosine
+  indexes only, so no existing caller changes; a fixed `nprobe` still works.
+- Tests (`tests/test_adc_inner_product.py`): the scan equals
+  `q @ decompress(compress(x)).T` to 1e-5 of the score scale (measured 3.4e-7)
+  across whiten and rotation; linearity in the query; inner-product
+  neighbours recovered where cosine cannot (recall 0.90 vs 0.19 on data built
+  so the orders disagree); metric-exact rerank on every rerank path; and a
+  kernel error bound derived from the kernel's own table rounding,
+  `|kernel - exact| <= cnorm * d * scale / 2`, in place of the cosine
+  contract's 5%-of-spread rule, which does not transfer because under inner
+  product the error scales with each row's norm.
+
 ### 2026-09-18 — workload-learned observers (issue #180)
 - **`turboquant_pro.workload`** and **`tqp observer learn`** — write the
   contract the traffic performed rather than the one someone remembers. Reads
