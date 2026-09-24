@@ -18,8 +18,10 @@ slow per-step simulation (verified on Llama-2-7B). Values use per-token uniform.
 Config via env; sharded by SHARD_ID / NUM_SHARDS. Model via MODEL (HF id) and
 MODEL_KEY (LongBench config key, e.g. ``llama2-7b-chat-4k``) for max-length/prompts.
 """
+import glob
 import json
 import os
+import sys
 
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -76,6 +78,12 @@ if not NOQUANT:
             f"CODEBOOK={CODEBOOK} requires KEY_BITS=4 (got {KB}); "
             "refusing the silent fallthrough to uniform"
         )
+# Key-coding stages (observer-advantage Part II): basis / fit / allocation / byte
+# match around the codebook above. key_coding.py sits beside this file.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import key_coding as KC  # noqa: E402
+
+KC.validate(CODEBOOK, PREROPE, NOQUANT)
 TAG = os.environ.get("TAG", "v0")
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
@@ -436,32 +444,84 @@ def _calib_texts(n):
     return texts
 
 
-def qdq_key_block(x):
-    """Quantize the full settled key block once (global per-channel outliers + sink)."""
+def _codebook(x, bits):
+    """The key codebook at ``bits`` on a (B, H, n, D) block (dispatch only)."""
+    if CODEBOOK == "nf4" and bits == 4:
+        return _quant_nf4_group(x, G, NF4)
+    if CODEBOOK == "nf4a" and bits == 4:
+        return _quant_nf4a_group(x, G, NF4)
+    if CODEBOOK in ("quantile", "kmeans"):
+        return _quant_perchannel_codebook(x, bits, CODEBOOK)
+    if CODEBOOK == "kvquant":
+        return _quant_kvquant_group(x, _CUR_LAYER)
+    if CODEBOOK == "kivi":
+        return _quant_uniform_asym_group(x, bits, G)
+    return _quant_uniform_group(x, bits, G)
+
+
+def _codebook_bits(x, bits):
+    """Codebook with a per-(head, channel) bit width; ``bits`` is (H, D) or None."""
+    if bits is None:
+        return _codebook(x, KB)
+    out = torch.empty_like(x)
+    for h in range(x.shape[1]):
+        for b in bits[h].unique().tolist():
+            idx = (bits[h] == b).nonzero().flatten()
+            out[:, h : h + 1, :, idx] = _codebook(x[:, h : h + 1, :, idx], int(b)).to(x.dtype)
+    return out
+
+
+def qdq_key_block(x, bits=None, extra_out_frac=0.0):
+    """Quantize the full settled key block once (global per-channel outliers + sink).
+
+    ``bits`` (per-channel widths) and ``extra_out_frac`` (byte-matching outliers) are
+    the key-coding stages' hooks; their defaults are the shipped path unchanged."""
     if _CALIBRATING:
         return x  # no-op during KVQuant calibration (its forward must not quantize)
     B, H, n, D = x.shape
-    if CODEBOOK == "nf4" and KB == 4:
-        hq = _quant_nf4_group(x, G, NF4)
-    elif CODEBOOK == "nf4a" and KB == 4:
-        hq = _quant_nf4a_group(x, G, NF4)
-    elif CODEBOOK in ("quantile", "kmeans"):
-        hq = _quant_perchannel_codebook(x, KB, CODEBOOK)
-    elif CODEBOOK == "kvquant":
-        hq = _quant_kvquant_group(x, _CUR_LAYER)
-    elif CODEBOOK == "kivi":
-        hq = _quant_uniform_asym_group(x, KB, G)
-    else:
-        hq = _quant_uniform_group(x, KB, G)
+    hq = _codebook_bits(x, bits)
     keep = torch.zeros(B, H, n, D, dtype=torch.bool, device=x.device)
     if SINK > 0:
         keep[:, :, : min(SINK, n), :] = True
-    if OUT_FRAC > 0:
-        k = max(1, int(round(n * OUT_FRAC)))
+    frac = OUT_FRAC + extra_out_frac
+    if frac > 0:
+        k = min(n, max(1, int(round(n * frac))))
         absn = x.abs()
         thr = absn.kthvalue(n - k + 1, dim=2, keepdim=True).values
         keep |= absn >= thr
     return torch.where(keep, x, hq).to(x.dtype)
+
+
+# Post-RoPE queries of the current layer's prefill, captured by the rope hook for
+# the key-coding stages (the attention forward calls apply_rotary_pos_emb and then
+# the cache update of the same layer, so the capture is always that layer's).
+_LAST_Q = None
+# Stored-bit accounting of the current sample, one dict per layer.
+_ACCT = []
+
+
+def _meta_per_group():
+    return 1 if CODEBOOK == "nf4" else 2
+
+
+def _code_settled_keys(ks, li):
+    """The settled prefill keys (B, H, n, D) through the shipped or staged path."""
+    n, H, D = ks.shape[2], ks.shape[1], ks.shape[3]
+    extra = KC.extra_outlier_frac(n, D, KB)
+    _ACCT.append(KC.account(n, H, D, KB, G, OUT_FRAC + extra, SINK, _meta_per_group()))
+    if not KC.active():
+        return qdq_key_block(ks)
+    return KC.code_keys(ks, _LAST_Q, li,
+                        lambda z, bits: qdq_key_block(z, bits, extra), KB)
+
+
+def _bits_summary():
+    """Stored bits per settled key element of the last sample, by component."""
+    elems = sum(a["elems"] for a in _ACCT)
+    if not elems:
+        return None
+    return {k: round(sum(a[k] for a in _ACCT) / elems, 4)
+            for k in ("code", "meta", "outliers", "basis", "alloc", "total")}
 
 
 def qdq_val_block(x):
@@ -479,6 +539,10 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
     global _CUR_LAYER
     _CUR_LAYER = li  # thread layer identity to qdq_key_block (KVQuant per-layer codebook)
     fk, fv = _orig_update(self, k, v, li, cache_kwargs)
+    if KC.ACCUMULATING:  # BASIS_FIT=calib: collect moments, quantize nothing
+        if k.shape[2] > HOT:
+            KC.accumulate(li, k, _LAST_Q)
+        return fk, fv
     if NOQUANT:
         return fk, fv
     # Quantize the settled prefill region ONCE, IN PLACE in the stored cache tensor.
@@ -491,7 +555,7 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         n = max(0, T - HOT)
         if n > 0:
             if not PREROPE:  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
-                fk[:, :, :n, :] = qdq_key_block(fk[:, :, :n, :])
+                fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li)
             fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
         self._qdone.add(li)
     return fk, fv
@@ -553,6 +617,65 @@ if PREROPE:
     _install_prerope()
 
 
+def _make_qcapture_hook(orig):
+    def _hook(q, k, *args, **kwargs):  # signature differs across transformers versions
+        global _LAST_Q
+        qr, kr = orig(q, k, *args, **kwargs)
+        _LAST_Q = qr if k.shape[2] > HOT else None  # prefill only
+        return qr, kr
+
+    return _hook
+
+
+def _install_qcapture():
+    """Record each layer's post-RoPE prefill queries for the key-coding stages
+    (same families and mechanism as _install_prerope)."""
+    import importlib
+
+    patched = []
+    for mp in (
+        "transformers.models.llama.modeling_llama",
+        "transformers.models.mistral.modeling_mistral",
+        "transformers.models.qwen2.modeling_qwen2",
+    ):
+        try:
+            m = importlib.import_module(mp)
+        except Exception:
+            continue
+        if hasattr(m, "apply_rotary_pos_emb"):
+            m.apply_rotary_pos_emb = _make_qcapture_hook(m.apply_rotary_pos_emb)
+            patched.append(mp.split(".")[-2])
+    print(f"[qcapture] patched: {patched}", flush=True)
+
+
+if not NOQUANT and (KC.needs_queries() or KC.BASIS_FIT == "calib"):
+    _install_qcapture()
+
+
+def ensure_basis_calibration(model, tok):
+    """BASIS_FIT=calib: fit S and C once per model on WikiText-2 train, then load.
+
+    The calibration forwards run with the cache ON (the moments are collected in
+    the cache update) and quantize nothing (KC.ACCUMULATING)."""
+    if KC.BASIS_FIT != "calib" or NOQUANT or not KC.active():
+        return
+    if not KC.BASIS_CALIB:
+        KC.BASIS_CALIB = os.path.join(OUT, f"basis_calib_{MODEL_KEY}.pt")
+    if os.path.exists(KC.BASIS_CALIB):
+        return
+    device = next(model.parameters()).device
+    KC.ACCUMULATING = True
+    try:
+        for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
+            enc = tok(text, truncation=True, max_length=2048, return_tensors="pt").to(device)
+            with torch.no_grad():
+                model(**enc, use_cache=True)
+    finally:
+        KC.ACCUMULATING = False
+    KC.save_calibration(KC.BASIS_CALIB)
+    print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
+
+
 def load_jsonl(p):
     return [json.loads(line) for line in open(p, encoding="utf-8")]
 
@@ -573,7 +696,8 @@ def build_chat(tok, prompt):
 def main():
     print(f"[shard {SHARD}/{NSH}] TAG={TAG} MODEL={MODEL_KEY} "
           f"CODEBOOK={'-' if NOQUANT else CODEBOOK} KB={KB} VB={VB} GROUP={G} HOT={HOT} "
-          f"SINK={SINK} OUT={OUT_FRAC} PREROPE={PREROPE} NUQ={NUQ} NOQUANT={NOQUANT}",
+          f"SINK={SINK} OUT={OUT_FRAC} PREROPE={PREROPE} NUQ={NUQ} NOQUANT={NOQUANT} "
+          f"KEY_CODING={KC.config() if KC.active() else '-'}",
           flush=True)
     # Config sidecar: record the EFFECTIVE quant config next to the outputs so the
     # aggregator (and any later reader) can verify what arm actually produced them,
@@ -585,6 +709,10 @@ def main():
         "group": G, "hot": HOT, "sink": SINK, "outlier_frac": OUT_FRAC,
         "prerope": PREROPE, "maxlen": MAXLEN, "maxgen_override": _MAXGEN,
     }
+    # Only a staged arm records (and hashes) the stages, so the shipped arms keep
+    # the artifact hash of every earlier result.
+    if KC.active() and not NOQUANT:
+        _cfg["key_coding"] = KC.config()
     # Artifact hash (2026-08-16, second errata guard): the arm is not just its
     # labels -- it is its level tables and its arithmetic. Hash the effective
     # config, the codebook constants, and the source of every quantizer
@@ -603,6 +731,8 @@ def main():
             _h.update(_ins.getsource(_qf).encode())
         except OSError:
             _h.update(_qf.__name__.encode())
+    if "key_coding" in _cfg:
+        _h.update(open(KC.__file__, "rb").read())
     _cfg["artifact_sha256"] = _h.hexdigest()
     with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
         json.dump(_cfg, _cf, indent=1)
@@ -631,6 +761,7 @@ def main():
         calibrate_kvquant(model, tok, _calib_texts(KVQ_CALIB_N))
         model.zero_grad(set_to_none=True)
         torch.cuda.empty_cache()
+    ensure_basis_calibration(model, tok)
     for dataset in DATASETS:
         data = load_jsonl(f"{DATADIR}/{dataset}.jsonl")
         pf = d2p[dataset]
@@ -652,6 +783,7 @@ def main():
                 prompt = build_chat(tok, prompt)
             inp = tok(prompt, truncation=False, return_tensors="pt").to(device)
             cl = inp.input_ids.shape[-1]
+            _ACCT.clear()
             with torch.no_grad():
                 out = model.generate(
                     **inp, max_new_tokens=mg, num_beams=1, do_sample=False,
@@ -659,7 +791,8 @@ def main():
                 )[0]
             pred = tok.decode(out[cl:], skip_special_tokens=True)
             fo.write(json.dumps({"idx": gi, "pred": pred, "answers": o["answers"],
-                                 "all_classes": o["all_classes"]}) + "\n")
+                                 "all_classes": o["all_classes"],
+                                 "key_bits": _bits_summary()}) + "\n")
             fo.flush()
         fo.close()
         print(f"[shard {SHARD}] {dataset} done", flush=True)
