@@ -58,8 +58,7 @@ def main():
         ntok += SEQLEN - 1
         if fo:
             fo.write(json.dumps({"chunk": nchunks, "start": i, "nll": chunk_nll,
-                                 "tokens": SEQLEN - 1, "key_bits": H._bits_summary()}) + "
-")
+                                 "tokens": SEQLEN - 1, "key_bits": H._bits_summary()}) + "\n")
             fo.flush()
         nchunks += 1
         if MAXCHUNKS and nchunks >= MAXCHUNKS:
