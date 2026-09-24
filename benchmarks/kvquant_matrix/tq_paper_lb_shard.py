@@ -66,7 +66,10 @@ if CODEBOOK == "kivi" and "KEY_BITS" not in os.environ:
 # `else: uniform` fallthrough, so an unknown/mistyped CODEBOOK (or nf4/nf4a with
 # KEY_BITS != 4) used to run SILENTLY as uniform while the TAG said otherwise.
 # Fail loudly instead — a run must execute the codebook its label claims.
-_KNOWN_CODEBOOKS = ("uniform", "nf4", "nf4a", "quantile", "kmeans", "kvquant", "kivi")
+# "identity" is the G0 gate of the key-coding stages: the codebook returns its
+# input, so any arm that differs from NOQUANT=1 has a wiring fault.
+_KNOWN_CODEBOOKS = ("uniform", "nf4", "nf4a", "quantile", "kmeans", "kvquant", "kivi",
+                    "identity")
 if not NOQUANT:
     if CODEBOOK not in _KNOWN_CODEBOOKS:
         raise SystemExit(
@@ -446,6 +449,8 @@ def _calib_texts(n):
 
 def _codebook(x, bits):
     """The key codebook at ``bits`` on a (B, H, n, D) block (dispatch only)."""
+    if CODEBOOK == "identity":
+        return x
     if CODEBOOK == "nf4" and bits == 4:
         return _quant_nf4_group(x, G, NF4)
     if CODEBOOK == "nf4a" and bits == 4:
