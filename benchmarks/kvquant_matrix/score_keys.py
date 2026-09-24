@@ -37,7 +37,7 @@ import keys_grid as KG  # noqa: E402
 
 N_BOOT = 10_000
 FIRST_LINE = {"trec", "triviaqa", "samsum", "lsht"}
-G0_MIN_SAME = 0.99  # share of trec predictions identical to fp16
+G0_MIN_SAME = 0.99  # share of trec predictions identical to g0_native
 G0_PPL_REL = 1e-3  # |ppl / ppl_fp16 - 1|
 
 
@@ -175,19 +175,35 @@ def main():
             ent["ppl"] = math.exp(_mean(d["ppl"])) if d["ppl"] else None
             m["cells"][arm] = ent
             data[mk][arm] = (d, cell)
-        # G0: identity codebook == fp16
-        if "fp16" in data[mk]:
-            ref_d, ref_cell = data[mk]["fp16"]
+        # G0: through the identity codebook every stage reproduces g0_native, the
+        # same key path with no stage (fp16 is not the reference: values are still
+        # quantized in every quantized arm, identity-key arms included).
+        if "g0_native" in data[mk]:
+            ref_d, ref_cell = data[mk]["g0_native"]
             for g in KG.G0_ARMS:
-                if g not in data[mk]:
+                if g == "g0_native" or g not in data[mk]:
                     continue
                 d, cell = data[mk][g]
                 pr, pf = preds(cell, "trec"), preds(ref_cell, "trec")
                 same = np.mean([pr[i] == pf[i] for i in set(pr) & set(pf)]) if pr else None
-                pg, pfp = m["cells"][g]["ppl"], m["cells"]["fp16"]["ppl"]
+                pg, pfp = m["cells"][g]["ppl"], m["cells"]["g0_native"]["ppl"]
                 rel = abs(pg / pfp - 1) if pg and pfp else None
                 ok = same is not None and same >= G0_MIN_SAME and rel is not None and rel <= G0_PPL_REL
                 m["g0"][g] = {"same_trec": same, "ppl_rel": rel, "pass": bool(ok)}
+
+    # G1: the shipped arm reproduces the recorded matrix (Tier A)
+    rec = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "results_matrix.json")))
+    for mk in KG.TIER_A:
+        name = mk.replace("-4k", "")
+        cell = report["models"][mk]["cells"].get("nf4a", {})
+        want_q = rec["models"].get(name, {}).get("nf4a", {}).get("qasper")
+        want_p = rec["wikitext2_ppl"].get(name, {}).get("nf4a")
+        got_q, got_p = cell.get("qasper"), cell.get("ppl")
+        ok = (None not in (want_q, want_p, got_q, got_p)
+              and abs(got_q - want_q) <= 1.0 and abs(got_p / want_p - 1) <= 0.01)
+        report["models"][mk]["g1"] = {"qasper": [got_q, want_q], "ppl": [got_p, want_p],
+                                      "pass": bool(ok)}
 
     def compare(mk, arm, ref, rep):
         if not all(x in data[mk] for x in (arm, ref, rep)):
@@ -204,6 +220,8 @@ def main():
         basis = _env(KG.ARMS[arm]).get("KEY_BASIS", "native")
         alloc = _env(KG.ARMS[arm]).get("KEY_ALLOC", "uniform")
         gate = "g0_O_read" if alloc != "uniform" else f"g0_{basis}"
+        if gate == "g0_native":
+            return "g0_native" in data[mk]  # the reference itself
         return report["models"][mk]["g0"].get(gate, {}).get("pass", False)
 
     comps = {}

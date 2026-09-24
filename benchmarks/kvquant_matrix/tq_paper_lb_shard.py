@@ -113,6 +113,8 @@ MODEL_MAXLEN = {
     "llama2-13b-chat-4k": 3500,
     "mistral-7b-instruct": 31500,
     "qwen2.5-7b-instruct": 31500,
+    "qwen2.5-1.5b-instruct": 31500,  # observer-advantage Part II, Tier B
+    "llama3.2-3b-instruct": 31500,
 }
 MAXLEN = int(os.environ.get("MAXLEN", str(MODEL_MAXLEN.get(MODEL_KEY, 3500))))
 
