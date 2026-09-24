@@ -8,7 +8,8 @@ harness's own ``main()`` (``keys_cell.py``) and then the WikiText-2 perplexity
 (``wikitext_ppl.py`` with CHUNKS_OUT), each under a thermal watchdog: no cell starts
 above 75 C, a running cell is paused above 83 C and resumed below 72 C. A cell whose
 outputs are complete is skipped, so the runner can be stopped and restarted. A cell
-is never rerun because of its result.
+is never rerun because of its result. Atlas is shared: no cell starts while any other
+process holds the GPU, so the campaign yields to other work between cells.
 
 --arms: ``priority`` (G0, fp16, then every arm a registered verdict reads),
 ``all`` (priority, then every reported arm), or a comma list.
@@ -55,9 +56,15 @@ def gpu_temp(gpu: int) -> int:
     return int(subprocess.check_output(q).decode().strip())
 
 
+def gpu_busy(gpu: int) -> bool:
+    """Another process holds this GPU (Atlas is shared: never start on top of it)."""
+    q = ["nvidia-smi", "-i", str(gpu), "--query-compute-apps=pid", "--format=csv,noheader"]
+    return bool(subprocess.check_output(q).decode().split())
+
+
 def watched(cmd: list[str], env: dict, log: str, gpu: int) -> int:
-    while gpu_temp(gpu) > 75:
-        time.sleep(20)
+    while gpu_busy(gpu) or gpu_temp(gpu) > 75:
+        time.sleep(30)
     with open(log, "w") as fo:
         p = subprocess.Popen(cmd, env=env, stdout=fo, stderr=subprocess.STDOUT, cwd=HERE)
         paused = False
