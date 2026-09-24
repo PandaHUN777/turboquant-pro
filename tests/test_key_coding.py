@@ -176,6 +176,18 @@ def test_jitter_moves_every_key_by_exactly_one_ulp():
     assert (j.float() - k.float()).abs().max() < 0.01
 
 
+def test_jitter_never_makes_a_nan_or_inf():
+    kc = _kc(KEY_JITTER=1)
+    edge = torch.tensor(
+        [0.0, -0.0, 65504.0, -65504.0, 6e-8, -6e-8, 1.0], dtype=torch.float16
+    )
+    k = edge.repeat(64).reshape(1, 1, 64, 7)
+    j = kc.jitter(k, layer=0)
+    assert torch.isfinite(j).all()
+    assert (j != k).all()  # every element moved
+    assert ((j.float() - k.float()).abs() <= 32.0).all()  # one ulp even at the top
+
+
 @pytest.mark.parametrize("basis", ["P", "O", "R"])
 def test_logits_through_the_query_map(basis):
     kc = _kc(KEY_BASIS=basis)

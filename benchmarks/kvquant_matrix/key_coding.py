@@ -308,10 +308,17 @@ def jitter(k: torch.Tensor, layer: int) -> torch.Tensor:
     if k.element_size() != 2:
         raise SystemExit(f"KEY_JITTER needs 16-bit keys, got {k.dtype}")
     g = torch.Generator(device=k.device).manual_seed(BASIS_SEED * 7919 + layer)
-    step = (torch.rand(k.shape, generator=g, device=k.device) < 0.5).to(torch.int16) * 2 - 1
-    # Adjacent 16-bit float encodings are adjacent magnitudes: +-1 on the bit
-    # pattern is one ulp (towards or away from zero), for every finite value.
-    return (k.contiguous().view(torch.int16) + step).view(k.dtype)
+    up = torch.rand(k.shape, generator=g, device=k.device) < 0.5
+    # On the magnitude bits of a 16-bit float, +-1 is one ulp away from or towards
+    # zero. Zero can only move away (a -1 would wrap to a NaN pattern) and the
+    # largest finite magnitude only towards zero (a +1 would reach inf).
+    bits = k.contiguous().view(torch.int16).int() & 0xFFFF
+    sign, mag = bits & 0x8000, bits & 0x7FFF
+    top = 0x7BFF if k.dtype == torch.float16 else 0x7F7F  # largest finite
+    step = torch.where(up, 1, -1)
+    step = torch.where(mag == 0, 1, torch.where(mag >= top, -1, step))
+    out = sign | (mag + step)
+    return torch.where(out >= 0x8000, out - 0x10000, out).to(torch.int16).view(k.dtype)
 
 
 def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int):
