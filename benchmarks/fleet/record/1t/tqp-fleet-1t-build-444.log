@@ -1,0 +1,2846 @@
+numpy 2.5.1
+MEM cur=127Mi peak=140Mi
+MEM cur=506Mi peak=531Mi
+MEM cur=609Mi peak=685Mi
+shard 1/400 (g=177600) written
+MEM cur=513Mi peak=758Mi
+MEM cur=537Mi peak=758Mi
+shard 2/400 (g=177601) written
+MEM cur=253Mi peak=802Mi
+MEM cur=557Mi peak=802Mi
+MEM cur=802Mi peak=802Mi
+shard 3/400 (g=177602) written
+MEM cur=487Mi peak=802Mi
+MEM cur=558Mi peak=802Mi
+shard 4/400 (g=177603) written
+MEM cur=512Mi peak=802Mi
+MEM cur=569Mi peak=802Mi
+shard 5/400 (g=177604) written
+MEM cur=474Mi peak=802Mi
+MEM cur=569Mi peak=802Mi
+shard 6/400 (g=177605) written
+MEM cur=272Mi peak=802Mi
+MEM cur=549Mi peak=802Mi
+MEM cur=619Mi peak=802Mi
+shard 7/400 (g=177606) written
+MEM cur=501Mi peak=802Mi
+MEM cur=611Mi peak=802Mi
+shard 8/400 (g=177607) written
+MEM cur=474Mi peak=802Mi
+MEM cur=575Mi peak=802Mi
+shard 9/400 (g=177608) written
+MEM cur=272Mi peak=802Mi
+MEM cur=560Mi peak=802Mi
+shard 10/400 (g=177609) written
+MEM cur=253Mi peak=802Mi
+MEM cur=548Mi peak=802Mi
+MEM cur=662Mi peak=802Mi
+shard 11/400 (g=177610) written
+MEM cur=480Mi peak=802Mi
+MEM cur=669Mi peak=802Mi
+shard 12/400 (g=177611) written
+MEM cur=492Mi peak=802Mi
+MEM cur=594Mi peak=802Mi
+shard 13/400 (g=177612) written
+MEM cur=272Mi peak=802Mi
+MEM cur=549Mi peak=802Mi
+MEM cur=802Mi peak=802Mi
+shard 14/400 (g=177613) written
+MEM cur=503Mi peak=802Mi
+MEM cur=652Mi peak=802Mi
+shard 15/400 (g=177614) written
+MEM cur=477Mi peak=802Mi
+MEM cur=611Mi peak=802Mi
+shard 16/400 (g=177615) written
+MEM cur=512Mi peak=802Mi
+MEM cur=552Mi peak=802Mi
+shard 17/400 (g=177616) written
+MEM cur=253Mi peak=802Mi
+MEM cur=550Mi peak=802Mi
+shard 18/400 (g=177617) written
+MEM cur=253Mi peak=803Mi
+MEM cur=548Mi peak=803Mi
+MEM cur=611Mi peak=803Mi
+shard 19/400 (g=177618) written
+MEM cur=478Mi peak=803Mi
+MEM cur=599Mi peak=803Mi
+shard 20/400 (g=177619) written
+MEM cur=473Mi peak=803Mi
+MEM cur=594Mi peak=803Mi
+shard 21/400 (g=177620) written
+MEM cur=312Mi peak=803Mi
+MEM cur=554Mi peak=803Mi
+shard 22/400 (g=177621) written
+MEM cur=246Mi peak=803Mi
+MEM cur=525Mi peak=803Mi
+MEM cur=582Mi peak=803Mi
+shard 23/400 (g=177622) written
+MEM cur=479Mi peak=803Mi
+MEM cur=614Mi peak=803Mi
+shard 24/400 (g=177623) written
+MEM cur=473Mi peak=803Mi
+MEM cur=594Mi peak=803Mi
+shard 25/400 (g=177624) written
+MEM cur=279Mi peak=803Mi
+MEM cur=559Mi peak=803Mi
+shard 26/400 (g=177625) written
+MEM cur=253Mi peak=803Mi
+MEM cur=512Mi peak=803Mi
+MEM cur=611Mi peak=803Mi
+shard 27/400 (g=177626) written
+MEM cur=480Mi peak=803Mi
+MEM cur=603Mi peak=803Mi
+shard 28/400 (g=177627) written
+MEM cur=512Mi peak=803Mi
+MEM cur=528Mi peak=803Mi
+shard 29/400 (g=177628) written
+MEM cur=253Mi peak=803Mi
+MEM cur=515Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 30/400 (g=177629) written
+MEM cur=503Mi peak=803Mi
+MEM cur=649Mi peak=803Mi
+shard 31/400 (g=177630) written
+MEM cur=513Mi peak=803Mi
+MEM cur=608Mi peak=803Mi
+shard 32/400 (g=177631) written
+MEM cur=469Mi peak=803Mi
+MEM cur=569Mi peak=803Mi
+shard 33/400 (g=177632) written
+MEM cur=253Mi peak=803Mi
+MEM cur=516Mi peak=803Mi
+MEM cur=803Mi peak=803Mi
+shard 34/400 (g=177633) written
+MEM cur=499Mi peak=803Mi
+MEM cur=589Mi peak=803Mi
+shard 35/400 (g=177634) written
+MEM cur=491Mi peak=803Mi
+MEM cur=583Mi peak=803Mi
+shard 36/400 (g=177635) written
+MEM cur=512Mi peak=803Mi
+MEM cur=573Mi peak=803Mi
+shard 37/400 (g=177636) written
+MEM cur=411Mi peak=803Mi
+MEM cur=536Mi peak=803Mi
+shard 38/400 (g=177637) written
+MEM cur=253Mi peak=803Mi
+MEM cur=515Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 39/400 (g=177638) written
+MEM cur=541Mi peak=803Mi
+MEM cur=607Mi peak=803Mi
+shard 40/400 (g=177639) written
+MEM cur=473Mi peak=803Mi
+MEM cur=594Mi peak=803Mi
+shard 41/400 (g=177640) written
+MEM cur=416Mi peak=803Mi
+MEM cur=581Mi peak=803Mi
+shard 42/400 (g=177641) written
+MEM cur=253Mi peak=803Mi
+MEM cur=550Mi peak=803Mi
+shard 43/400 (g=177642) written
+MEM cur=271Mi peak=803Mi
+MEM cur=533Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 44/400 (g=177643) written
+MEM cur=541Mi peak=803Mi
+MEM cur=590Mi peak=803Mi
+shard 45/400 (g=177644) written
+MEM cur=491Mi peak=803Mi
+MEM cur=583Mi peak=803Mi
+shard 46/400 (g=177645) written
+MEM cur=454Mi peak=803Mi
+MEM cur=577Mi peak=803Mi
+shard 47/400 (g=177646) written
+MEM cur=253Mi peak=803Mi
+MEM cur=520Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 48/400 (g=177647) written
+MEM cur=503Mi peak=803Mi
+MEM cur=569Mi peak=803Mi
+shard 49/400 (g=177648) written
+MEM cur=449Mi peak=803Mi
+MEM cur=608Mi peak=803Mi
+shard 50/400 (g=177649) written
+MEM cur=513Mi peak=803Mi
+MEM cur=553Mi peak=803Mi
+shard 51/400 (g=177650) written
+MEM cur=420Mi peak=803Mi
+MEM cur=539Mi peak=803Mi
+shard 52/400 (g=177651) written
+MEM cur=253Mi peak=803Mi
+MEM cur=557Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 53/400 (g=177652) written
+MEM cur=503Mi peak=803Mi
+MEM cur=558Mi peak=803Mi
+shard 54/400 (g=177653) written
+MEM cur=484Mi peak=803Mi
+MEM cur=586Mi peak=803Mi
+shard 55/400 (g=177654) written
+MEM cur=513Mi peak=803Mi
+MEM cur=566Mi peak=803Mi
+shard 56/400 (g=177655) written
+MEM cur=513Mi peak=803Mi
+MEM cur=573Mi peak=803Mi
+shard 57/400 (g=177656) written
+MEM cur=253Mi peak=803Mi
+MEM cur=515Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 58/400 (g=177657) written
+MEM cur=503Mi peak=803Mi
+MEM cur=760Mi peak=803Mi
+shard 59/400 (g=177658) written
+MEM cur=480Mi peak=803Mi
+MEM cur=603Mi peak=803Mi
+shard 60/400 (g=177659) written
+MEM cur=492Mi peak=803Mi
+MEM cur=587Mi peak=803Mi
+shard 61/400 (g=177660) written
+MEM cur=454Mi peak=803Mi
+MEM cur=578Mi peak=803Mi
+shard 62/400 (g=177661) written
+MEM cur=253Mi peak=803Mi
+MEM cur=557Mi peak=803Mi
+shard 63/400 (g=177662) written
+MEM cur=253Mi peak=803Mi
+MEM cur=549Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 64/400 (g=177663) written
+MEM cur=541Mi peak=803Mi
+MEM cur=610Mi peak=803Mi
+shard 65/400 (g=177664) written
+MEM cur=449Mi peak=803Mi
+MEM cur=608Mi peak=803Mi
+shard 66/400 (g=177665) written
+MEM cur=437Mi peak=803Mi
+MEM cur=581Mi peak=803Mi
+shard 67/400 (g=177666) written
+MEM cur=253Mi peak=803Mi
+MEM cur=580Mi peak=803Mi
+MEM cur=268Mi peak=803Mi
+shard 68/400 (g=177667) written
+MEM cur=507Mi peak=803Mi
+MEM cur=625Mi peak=803Mi
+shard 69/400 (g=177668) written
+MEM cur=533Mi peak=803Mi
+MEM cur=607Mi peak=803Mi
+shard 70/400 (g=177669) written
+MEM cur=513Mi peak=803Mi
+MEM cur=587Mi peak=803Mi
+shard 71/400 (g=177670) written
+MEM cur=513Mi peak=803Mi
+MEM cur=573Mi peak=803Mi
+shard 72/400 (g=177671) written
+MEM cur=411Mi peak=803Mi
+MEM cur=551Mi peak=803Mi
+shard 73/400 (g=177672) written
+MEM cur=253Mi peak=803Mi
+MEM cur=534Mi peak=803Mi
+MEM cur=803Mi peak=803Mi
+shard 74/400 (g=177673) written
+MEM cur=499Mi peak=803Mi
+MEM cur=590Mi peak=803Mi
+shard 75/400 (g=177674) written
+MEM cur=473Mi peak=803Mi
+MEM cur=595Mi peak=803Mi
+shard 76/400 (g=177675) written
+MEM cur=454Mi peak=803Mi
+MEM cur=543Mi peak=803Mi
+shard 77/400 (g=177676) written
+MEM cur=253Mi peak=803Mi
+MEM cur=515Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 78/400 (g=177677) written
+MEM cur=484Mi peak=803Mi
+MEM cur=649Mi peak=803Mi
+shard 79/400 (g=177678) written
+MEM cur=513Mi peak=803Mi
+MEM cur=608Mi peak=803Mi
+shard 80/400 (g=177679) written
+MEM cur=473Mi peak=803Mi
+MEM cur=556Mi peak=803Mi
+shard 81/400 (g=177680) written
+MEM cur=454Mi peak=803Mi
+MEM cur=578Mi peak=803Mi
+shard 82/400 (g=177681) written
+MEM cur=253Mi peak=803Mi
+MEM cur=519Mi peak=803Mi
+MEM cur=802Mi peak=803Mi
+shard 83/400 (g=177682) written
+MEM cur=460Mi peak=803Mi
+MEM cur=649Mi peak=803Mi
+shard 84/400 (g=177683) written
+MEM cur=513Mi peak=803Mi
+MEM cur=570Mi peak=803Mi
+shard 85/400 (g=177684) written
+MEM cur=532Mi peak=803Mi
+MEM cur=553Mi peak=803Mi
+shard 86/400 (g=177685) written
+MEM cur=253Mi peak=803Mi
+MEM cur=557Mi peak=803Mi
+shard 87/400 (g=177686) written
+MEM cur=272Mi peak=803Mi
+MEM cur=550Mi peak=803Mi
+MEM cur=803Mi peak=803Mi
+shard 88/400 (g=177687) written
+MEM cur=506Mi peak=805Mi
+MEM cur=589Mi peak=805Mi
+shard 89/400 (g=177688) written
+MEM cur=513Mi peak=805Mi
+MEM cur=659Mi peak=805Mi
+shard 90/400 (g=177689) written
+MEM cur=513Mi peak=805Mi
+MEM cur=573Mi peak=805Mi
+shard 91/400 (g=177690) written
+MEM cur=289Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+shard 92/400 (g=177691) written
+MEM cur=253Mi peak=805Mi
+MEM cur=515Mi peak=805Mi
+MEM cur=802Mi peak=805Mi
+shard 93/400 (g=177692) written
+MEM cur=483Mi peak=805Mi
+MEM cur=589Mi peak=805Mi
+shard 94/400 (g=177693) written
+MEM cur=490Mi peak=805Mi
+MEM cur=600Mi peak=805Mi
+shard 95/400 (g=177694) written
+MEM cur=491Mi peak=805Mi
+MEM cur=598Mi peak=805Mi
+shard 96/400 (g=177695) written
+MEM cur=433Mi peak=805Mi
+MEM cur=536Mi peak=805Mi
+shard 97/400 (g=177696) written
+MEM cur=254Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+MEM cur=802Mi peak=805Mi
+shard 98/400 (g=177697) written
+MEM cur=541Mi peak=805Mi
+MEM cur=630Mi peak=805Mi
+shard 99/400 (g=177698) written
+MEM cur=451Mi peak=805Mi
+MEM cur=600Mi peak=805Mi
+shard 100/400 (g=177699) written
+MEM cur=504Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 101/400 (g=177700) written
+MEM cur=513Mi peak=805Mi
+MEM cur=573Mi peak=805Mi
+shard 102/400 (g=177701) written
+MEM cur=254Mi peak=805Mi
+MEM cur=515Mi peak=805Mi
+MEM cur=802Mi peak=805Mi
+shard 103/400 (g=177702) written
+MEM cur=503Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+shard 104/400 (g=177703) written
+MEM cur=513Mi peak=805Mi
+MEM cur=608Mi peak=805Mi
+shard 105/400 (g=177704) written
+MEM cur=454Mi peak=805Mi
+MEM cur=581Mi peak=805Mi
+shard 106/400 (g=177705) written
+MEM cur=254Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+shard 107/400 (g=177706) written
+MEM cur=253Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=686Mi peak=805Mi
+shard 108/400 (g=177707) written
+MEM cur=484Mi peak=805Mi
+MEM cur=586Mi peak=805Mi
+shard 109/400 (g=177708) written
+MEM cur=492Mi peak=805Mi
+MEM cur=560Mi peak=805Mi
+shard 110/400 (g=177709) written
+MEM cur=454Mi peak=805Mi
+MEM cur=581Mi peak=805Mi
+shard 111/400 (g=177710) written
+MEM cur=254Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 112/400 (g=177711) written
+MEM cur=491Mi peak=805Mi
+MEM cur=589Mi peak=805Mi
+shard 113/400 (g=177712) written
+MEM cur=478Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 114/400 (g=177713) written
+MEM cur=474Mi peak=805Mi
+MEM cur=595Mi peak=805Mi
+shard 115/400 (g=177714) written
+MEM cur=389Mi peak=805Mi
+MEM cur=493Mi peak=805Mi
+shard 116/400 (g=177715) written
+MEM cur=253Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+MEM cur=566Mi peak=805Mi
+shard 117/400 (g=177716) written
+MEM cur=478Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 118/400 (g=177717) written
+MEM cur=513Mi peak=805Mi
+MEM cur=573Mi peak=805Mi
+shard 119/400 (g=177718) written
+MEM cur=254Mi peak=805Mi
+MEM cur=564Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 120/400 (g=177719) written
+MEM cur=488Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+shard 121/400 (g=177720) written
+MEM cur=547Mi peak=805Mi
+MEM cur=600Mi peak=805Mi
+shard 122/400 (g=177721) written
+MEM cur=431Mi peak=805Mi
+MEM cur=557Mi peak=805Mi
+shard 123/400 (g=177722) written
+MEM cur=254Mi peak=805Mi
+MEM cur=551Mi peak=805Mi
+shard 124/400 (g=177723) written
+MEM cur=254Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=665Mi peak=805Mi
+shard 125/400 (g=177724) written
+MEM cur=499Mi peak=805Mi
+MEM cur=601Mi peak=805Mi
+shard 126/400 (g=177725) written
+MEM cur=513Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 127/400 (g=177726) written
+MEM cur=454Mi peak=805Mi
+MEM cur=578Mi peak=805Mi
+shard 128/400 (g=177727) written
+MEM cur=254Mi peak=805Mi
+MEM cur=516Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 129/400 (g=177728) written
+MEM cur=541Mi peak=805Mi
+MEM cur=607Mi peak=805Mi
+shard 130/400 (g=177729) written
+MEM cur=513Mi peak=805Mi
+MEM cur=538Mi peak=805Mi
+shard 131/400 (g=177730) written
+MEM cur=454Mi peak=805Mi
+MEM cur=578Mi peak=805Mi
+shard 132/400 (g=177731) written
+MEM cur=254Mi peak=805Mi
+MEM cur=534Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 133/400 (g=177732) written
+MEM cur=461Mi peak=805Mi
+MEM cur=649Mi peak=805Mi
+shard 134/400 (g=177733) written
+MEM cur=513Mi peak=805Mi
+MEM cur=567Mi peak=805Mi
+shard 135/400 (g=177734) written
+MEM cur=475Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 136/400 (g=177735) written
+MEM cur=254Mi peak=805Mi
+MEM cur=557Mi peak=805Mi
+MEM cur=268Mi peak=805Mi
+shard 137/400 (g=177736) written
+MEM cur=483Mi peak=805Mi
+MEM cur=589Mi peak=805Mi
+shard 138/400 (g=177737) written
+MEM cur=480Mi peak=805Mi
+MEM cur=623Mi peak=805Mi
+shard 139/400 (g=177738) written
+MEM cur=492Mi peak=805Mi
+MEM cur=560Mi peak=805Mi
+shard 140/400 (g=177739) written
+MEM cur=412Mi peak=805Mi
+MEM cur=540Mi peak=805Mi
+shard 141/400 (g=177740) written
+MEM cur=254Mi peak=805Mi
+MEM cur=534Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 142/400 (g=177741) written
+MEM cur=541Mi peak=805Mi
+MEM cur=611Mi peak=805Mi
+shard 143/400 (g=177742) written
+MEM cur=513Mi peak=805Mi
+MEM cur=567Mi peak=805Mi
+shard 144/400 (g=177743) written
+MEM cur=455Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 145/400 (g=177744) written
+MEM cur=254Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+shard 146/400 (g=177745) written
+MEM cur=254Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+MEM cur=581Mi peak=805Mi
+shard 147/400 (g=177746) written
+MEM cur=480Mi peak=805Mi
+MEM cur=535Mi peak=805Mi
+shard 148/400 (g=177747) written
+MEM cur=474Mi peak=805Mi
+MEM cur=595Mi peak=805Mi
+shard 149/400 (g=177748) written
+MEM cur=254Mi peak=805Mi
+MEM cur=551Mi peak=805Mi
+MEM cur=669Mi peak=805Mi
+shard 150/400 (g=177749) written
+MEM cur=507Mi peak=805Mi
+MEM cur=589Mi peak=805Mi
+shard 151/400 (g=177750) written
+MEM cur=480Mi peak=805Mi
+MEM cur=604Mi peak=805Mi
+shard 152/400 (g=177751) written
+MEM cur=445Mi peak=805Mi
+MEM cur=557Mi peak=805Mi
+shard 153/400 (g=177752) written
+MEM cur=254Mi peak=805Mi
+MEM cur=551Mi peak=805Mi
+shard 154/400 (g=177753) written
+MEM cur=223Mi peak=805Mi
+MEM cur=507Mi peak=805Mi
+MEM cur=611Mi peak=805Mi
+shard 155/400 (g=177754) written
+MEM cur=478Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 156/400 (g=177755) written
+MEM cur=478Mi peak=805Mi
+MEM cur=595Mi peak=805Mi
+shard 157/400 (g=177756) written
+MEM cur=433Mi peak=805Mi
+MEM cur=536Mi peak=805Mi
+shard 158/400 (g=177757) written
+MEM cur=254Mi peak=805Mi
+MEM cur=569Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 159/400 (g=177758) written
+MEM cur=480Mi peak=805Mi
+MEM cur=623Mi peak=805Mi
+shard 160/400 (g=177759) written
+MEM cur=492Mi peak=805Mi
+MEM cur=599Mi peak=805Mi
+shard 161/400 (g=177760) written
+MEM cur=254Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 162/400 (g=177761) written
+MEM cur=504Mi peak=805Mi
+MEM cur=697Mi peak=805Mi
+shard 163/400 (g=177762) written
+MEM cur=513Mi peak=805Mi
+MEM cur=574Mi peak=805Mi
+shard 164/400 (g=177763) written
+MEM cur=455Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 165/400 (g=177764) written
+MEM cur=254Mi peak=805Mi
+MEM cur=535Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 166/400 (g=177765) written
+MEM cur=503Mi peak=805Mi
+MEM cur=649Mi peak=805Mi
+shard 167/400 (g=177766) written
+MEM cur=478Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 168/400 (g=177767) written
+MEM cur=514Mi peak=805Mi
+MEM cur=573Mi peak=805Mi
+shard 169/400 (g=177768) written
+MEM cur=254Mi peak=805Mi
+MEM cur=530Mi peak=805Mi
+shard 170/400 (g=177769) written
+MEM cur=235Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+MEM cur=611Mi peak=805Mi
+shard 171/400 (g=177770) written
+MEM cur=452Mi peak=805Mi
+MEM cur=650Mi peak=805Mi
+shard 172/400 (g=177771) written
+MEM cur=474Mi peak=805Mi
+MEM cur=595Mi peak=805Mi
+shard 173/400 (g=177772) written
+MEM cur=254Mi peak=805Mi
+MEM cur=551Mi peak=805Mi
+shard 174/400 (g=177773) written
+MEM cur=254Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 175/400 (g=177774) written
+MEM cur=515Mi peak=805Mi
+MEM cur=582Mi peak=805Mi
+shard 176/400 (g=177775) written
+MEM cur=513Mi peak=805Mi
+MEM cur=553Mi peak=805Mi
+shard 177/400 (g=177776) written
+MEM cur=273Mi peak=805Mi
+MEM cur=523Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 178/400 (g=177777) written
+MEM cur=570Mi peak=805Mi
+MEM cur=523Mi peak=805Mi
+shard 179/400 (g=177778) written
+MEM cur=518Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 180/400 (g=177779) written
+MEM cur=455Mi peak=805Mi
+MEM cur=582Mi peak=805Mi
+shard 181/400 (g=177780) written
+MEM cur=254Mi peak=805Mi
+MEM cur=516Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 182/400 (g=177781) written
+MEM cur=461Mi peak=805Mi
+MEM cur=649Mi peak=805Mi
+shard 183/400 (g=177782) written
+MEM cur=514Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 184/400 (g=177783) written
+MEM cur=455Mi peak=805Mi
+MEM cur=578Mi peak=805Mi
+shard 185/400 (g=177784) written
+MEM cur=254Mi peak=805Mi
+MEM cur=541Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 186/400 (g=177785) written
+MEM cur=542Mi peak=805Mi
+MEM cur=608Mi peak=805Mi
+shard 187/400 (g=177786) written
+MEM cur=514Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 188/400 (g=177787) written
+MEM cur=455Mi peak=805Mi
+MEM cur=578Mi peak=805Mi
+shard 189/400 (g=177788) written
+MEM cur=273Mi peak=805Mi
+MEM cur=512Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 190/400 (g=177789) written
+MEM cur=500Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 191/400 (g=177790) written
+MEM cur=492Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+shard 192/400 (g=177791) written
+MEM cur=427Mi peak=805Mi
+MEM cur=494Mi peak=805Mi
+shard 193/400 (g=177792) written
+MEM cur=254Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=712Mi peak=805Mi
+shard 194/400 (g=177793) written
+MEM cur=484Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 195/400 (g=177794) written
+MEM cur=492Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+shard 196/400 (g=177795) written
+MEM cur=423Mi peak=805Mi
+MEM cur=520Mi peak=805Mi
+shard 197/400 (g=177796) written
+MEM cur=254Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 198/400 (g=177797) written
+MEM cur=485Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+shard 199/400 (g=177798) written
+MEM cur=474Mi peak=805Mi
+MEM cur=595Mi peak=805Mi
+shard 200/400 (g=177799) written
+MEM cur=433Mi peak=805Mi
+MEM cur=537Mi peak=805Mi
+shard 201/400 (g=177800) written
+MEM cur=273Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 202/400 (g=177801) written
+MEM cur=500Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 203/400 (g=177802) written
+MEM cur=492Mi peak=805Mi
+MEM cur=561Mi peak=805Mi
+shard 204/400 (g=177803) written
+MEM cur=433Mi peak=805Mi
+MEM cur=507Mi peak=805Mi
+shard 205/400 (g=177804) written
+MEM cur=254Mi peak=805Mi
+MEM cur=550Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 206/400 (g=177805) written
+MEM cur=481Mi peak=805Mi
+MEM cur=605Mi peak=805Mi
+shard 207/400 (g=177806) written
+MEM cur=492Mi peak=805Mi
+MEM cur=614Mi peak=805Mi
+shard 208/400 (g=177807) written
+MEM cur=301Mi peak=805Mi
+MEM cur=555Mi peak=805Mi
+shard 209/400 (g=177808) written
+MEM cur=254Mi peak=805Mi
+MEM cur=549Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 210/400 (g=177809) written
+MEM cur=453Mi peak=805Mi
+MEM cur=601Mi peak=805Mi
+shard 211/400 (g=177810) written
+MEM cur=514Mi peak=805Mi
+MEM cur=511Mi peak=805Mi
+shard 212/400 (g=177811) written
+MEM cur=254Mi peak=805Mi
+MEM cur=551Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 213/400 (g=177812) written
+MEM cur=504Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 214/400 (g=177813) written
+MEM cur=514Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 215/400 (g=177814) written
+MEM cur=455Mi peak=805Mi
+MEM cur=654Mi peak=805Mi
+shard 216/400 (g=177815) written
+MEM cur=254Mi peak=805Mi
+MEM cur=459Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 217/400 (g=177816) written
+MEM cur=504Mi peak=805Mi
+MEM cur=608Mi peak=805Mi
+shard 218/400 (g=177817) written
+MEM cur=492Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 219/400 (g=177818) written
+MEM cur=448Mi peak=805Mi
+MEM cur=582Mi peak=805Mi
+shard 220/400 (g=177819) written
+MEM cur=254Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 221/400 (g=177820) written
+MEM cur=504Mi peak=805Mi
+MEM cur=686Mi peak=805Mi
+shard 222/400 (g=177821) written
+MEM cur=514Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 223/400 (g=177822) written
+MEM cur=514Mi peak=805Mi
+MEM cur=507Mi peak=805Mi
+shard 224/400 (g=177823) written
+MEM cur=254Mi peak=805Mi
+MEM cur=539Mi peak=805Mi
+shard 225/400 (g=177824) written
+MEM cur=254Mi peak=805Mi
+MEM cur=508Mi peak=805Mi
+MEM cur=569Mi peak=805Mi
+shard 226/400 (g=177825) written
+MEM cur=505Mi peak=805Mi
+MEM cur=532Mi peak=805Mi
+shard 227/400 (g=177826) written
+MEM cur=482Mi peak=805Mi
+MEM cur=599Mi peak=805Mi
+shard 228/400 (g=177827) written
+MEM cur=425Mi peak=805Mi
+MEM cur=518Mi peak=805Mi
+shard 229/400 (g=177828) written
+MEM cur=216Mi peak=805Mi
+MEM cur=508Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 230/400 (g=177829) written
+MEM cur=517Mi peak=805Mi
+MEM cur=601Mi peak=805Mi
+shard 231/400 (g=177830) written
+MEM cur=514Mi peak=805Mi
+MEM cur=535Mi peak=805Mi
+shard 232/400 (g=177831) written
+MEM cur=254Mi peak=805Mi
+MEM cur=520Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 233/400 (g=177832) written
+MEM cur=504Mi peak=805Mi
+MEM cur=650Mi peak=805Mi
+shard 234/400 (g=177833) written
+MEM cur=514Mi peak=805Mi
+MEM cur=568Mi peak=805Mi
+shard 235/400 (g=177834) written
+MEM cur=472Mi peak=805Mi
+MEM cur=624Mi peak=805Mi
+shard 236/400 (g=177835) written
+MEM cur=254Mi peak=805Mi
+MEM cur=520Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 237/400 (g=177836) written
+MEM cur=504Mi peak=805Mi
+MEM cur=752Mi peak=805Mi
+shard 238/400 (g=177837) written
+MEM cur=514Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 239/400 (g=177838) written
+MEM cur=514Mi peak=805Mi
+MEM cur=574Mi peak=805Mi
+shard 240/400 (g=177839) written
+MEM cur=254Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 241/400 (g=177840) written
+MEM cur=500Mi peak=805Mi
+MEM cur=650Mi peak=805Mi
+shard 242/400 (g=177841) written
+MEM cur=514Mi peak=805Mi
+MEM cur=588Mi peak=805Mi
+shard 243/400 (g=177842) written
+MEM cur=455Mi peak=805Mi
+MEM cur=579Mi peak=805Mi
+shard 244/400 (g=177843) written
+MEM cur=273Mi peak=805Mi
+MEM cur=550Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 245/400 (g=177844) written
+MEM cur=485Mi peak=805Mi
+MEM cur=605Mi peak=805Mi
+shard 246/400 (g=177845) written
+MEM cur=466Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+shard 247/400 (g=177846) written
+MEM cur=255Mi peak=805Mi
+MEM cur=523Mi peak=805Mi
+MEM cur=708Mi peak=805Mi
+shard 248/400 (g=177847) written
+MEM cur=486Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 249/400 (g=177848) written
+MEM cur=514Mi peak=805Mi
+MEM cur=596Mi peak=805Mi
+shard 250/400 (g=177849) written
+MEM cur=455Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 251/400 (g=177850) written
+MEM cur=274Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 252/400 (g=177851) written
+MEM cur=489Mi peak=805Mi
+MEM cur=559Mi peak=805Mi
+shard 253/400 (g=177852) written
+MEM cur=514Mi peak=805Mi
+MEM cur=575Mi peak=805Mi
+shard 254/400 (g=177853) written
+MEM cur=476Mi peak=805Mi
+MEM cur=570Mi peak=805Mi
+shard 255/400 (g=177854) written
+MEM cur=255Mi peak=805Mi
+MEM cur=516Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 256/400 (g=177855) written
+MEM cur=543Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 257/400 (g=177856) written
+MEM cur=475Mi peak=805Mi
+MEM cur=596Mi peak=805Mi
+shard 258/400 (g=177857) written
+MEM cur=274Mi peak=805Mi
+MEM cur=552Mi peak=805Mi
+shard 259/400 (g=177858) written
+MEM cur=274Mi peak=805Mi
+MEM cur=558Mi peak=805Mi
+MEM cur=577Mi peak=805Mi
+shard 260/400 (g=177859) written
+MEM cur=465Mi peak=805Mi
+MEM cur=601Mi peak=805Mi
+shard 261/400 (g=177860) written
+MEM cur=475Mi peak=805Mi
+MEM cur=596Mi peak=805Mi
+shard 262/400 (g=177861) written
+MEM cur=255Mi peak=805Mi
+MEM cur=552Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 263/400 (g=177862) written
+MEM cur=496Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 264/400 (g=177863) written
+MEM cur=511Mi peak=805Mi
+MEM cur=575Mi peak=805Mi
+shard 265/400 (g=177864) written
+MEM cur=476Mi peak=805Mi
+MEM cur=593Mi peak=805Mi
+shard 266/400 (g=177865) written
+MEM cur=255Mi peak=805Mi
+MEM cur=474Mi peak=805Mi
+MEM cur=803Mi peak=805Mi
+shard 267/400 (g=177866) written
+MEM cur=542Mi peak=805Mi
+MEM cur=608Mi peak=805Mi
+shard 268/400 (g=177867) written
+MEM cur=493Mi peak=805Mi
+MEM cur=585Mi peak=805Mi
+shard 269/400 (g=177868) written
+MEM cur=455Mi peak=805Mi
+MEM cur=579Mi peak=805Mi
+shard 270/400 (g=177869) written
+MEM cur=255Mi peak=805Mi
+MEM cur=535Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 271/400 (g=177870) written
+MEM cur=447Mi peak=805Mi
+MEM cur=587Mi peak=805Mi
+shard 272/400 (g=177871) written
+MEM cur=475Mi peak=805Mi
+MEM cur=618Mi peak=805Mi
+shard 273/400 (g=177872) written
+MEM cur=434Mi peak=805Mi
+MEM cur=518Mi peak=805Mi
+shard 274/400 (g=177873) written
+MEM cur=255Mi peak=805Mi
+MEM cur=512Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 275/400 (g=177874) written
+MEM cur=514Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 276/400 (g=177875) written
+MEM cur=456Mi peak=805Mi
+MEM cur=579Mi peak=805Mi
+shard 277/400 (g=177876) written
+MEM cur=274Mi peak=805Mi
+MEM cur=542Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 278/400 (g=177877) written
+MEM cur=542Mi peak=805Mi
+MEM cur=612Mi peak=805Mi
+shard 279/400 (g=177878) written
+MEM cur=514Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 280/400 (g=177879) written
+MEM cur=514Mi peak=805Mi
+MEM cur=574Mi peak=805Mi
+shard 281/400 (g=177880) written
+MEM cur=255Mi peak=805Mi
+MEM cur=517Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 282/400 (g=177881) written
+MEM cur=462Mi peak=805Mi
+MEM cur=650Mi peak=805Mi
+shard 283/400 (g=177882) written
+MEM cur=518Mi peak=805Mi
+MEM cur=609Mi peak=805Mi
+shard 284/400 (g=177883) written
+MEM cur=484Mi peak=805Mi
+MEM cur=571Mi peak=805Mi
+shard 285/400 (g=177884) written
+MEM cur=274Mi peak=805Mi
+MEM cur=562Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 286/400 (g=177885) written
+MEM cur=482Mi peak=805Mi
+MEM cur=590Mi peak=805Mi
+shard 287/400 (g=177886) written
+MEM cur=479Mi peak=805Mi
+MEM cur=613Mi peak=805Mi
+shard 288/400 (g=177887) written
+MEM cur=476Mi peak=805Mi
+MEM cur=571Mi peak=805Mi
+shard 289/400 (g=177888) written
+MEM cur=255Mi peak=805Mi
+MEM cur=517Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 290/400 (g=177889) written
+MEM cur=504Mi peak=805Mi
+MEM cur=598Mi peak=805Mi
+shard 291/400 (g=177890) written
+MEM cur=514Mi peak=805Mi
+MEM cur=568Mi peak=805Mi
+shard 292/400 (g=177891) written
+MEM cur=443Mi peak=805Mi
+MEM cur=579Mi peak=805Mi
+shard 293/400 (g=177892) written
+MEM cur=255Mi peak=805Mi
+MEM cur=535Mi peak=805Mi
+MEM cur=804Mi peak=805Mi
+shard 294/400 (g=177893) written
+MEM cur=504Mi peak=805Mi
+MEM cur=591Mi peak=805Mi
+shard 295/400 (g=177894) written
+MEM cur=475Mi peak=805Mi
+MEM cur=614Mi peak=805Mi
+shard 296/400 (g=177895) written
+MEM cur=391Mi peak=805Mi
+MEM cur=556Mi peak=805Mi
+shard 297/400 (g=177896) written
+MEM cur=274Mi peak=806Mi
+MEM cur=551Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 298/400 (g=177897) written
+MEM cur=504Mi peak=806Mi
+MEM cur=592Mi peak=806Mi
+shard 299/400 (g=177898) written
+MEM cur=493Mi peak=806Mi
+MEM cur=585Mi peak=806Mi
+shard 300/400 (g=177899) written
+MEM cur=456Mi peak=806Mi
+MEM cur=579Mi peak=806Mi
+shard 301/400 (g=177900) written
+MEM cur=255Mi peak=806Mi
+MEM cur=517Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 302/400 (g=177901) written
+MEM cur=543Mi peak=806Mi
+MEM cur=608Mi peak=806Mi
+shard 303/400 (g=177902) written
+MEM cur=514Mi peak=806Mi
+MEM cur=564Mi peak=806Mi
+shard 304/400 (g=177903) written
+MEM cur=456Mi peak=806Mi
+MEM cur=571Mi peak=806Mi
+shard 305/400 (g=177904) written
+MEM cur=274Mi peak=806Mi
+MEM cur=559Mi peak=806Mi
+MEM cur=411Mi peak=806Mi
+shard 306/400 (g=177905) written
+MEM cur=508Mi peak=806Mi
+MEM cur=591Mi peak=806Mi
+shard 307/400 (g=177906) written
+MEM cur=465Mi peak=806Mi
+MEM cur=601Mi peak=806Mi
+shard 308/400 (g=177907) written
+MEM cur=514Mi peak=806Mi
+MEM cur=596Mi peak=806Mi
+shard 309/400 (g=177908) written
+MEM cur=255Mi peak=806Mi
+MEM cur=524Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 310/400 (g=177909) written
+MEM cur=566Mi peak=806Mi
+MEM cur=530Mi peak=806Mi
+shard 311/400 (g=177910) written
+MEM cur=514Mi peak=806Mi
+MEM cur=581Mi peak=806Mi
+shard 312/400 (g=177911) written
+MEM cur=476Mi peak=806Mi
+MEM cur=571Mi peak=806Mi
+shard 313/400 (g=177912) written
+MEM cur=255Mi peak=806Mi
+MEM cur=559Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 314/400 (g=177913) written
+MEM cur=547Mi peak=806Mi
+MEM cur=559Mi peak=806Mi
+shard 315/400 (g=177914) written
+MEM cur=514Mi peak=806Mi
+MEM cur=610Mi peak=806Mi
+shard 316/400 (g=177915) written
+MEM cur=514Mi peak=806Mi
+MEM cur=524Mi peak=806Mi
+shard 317/400 (g=177916) written
+MEM cur=255Mi peak=806Mi
+MEM cur=552Mi peak=806Mi
+shard 318/400 (g=177917) written
+MEM cur=224Mi peak=806Mi
+MEM cur=508Mi peak=806Mi
+MEM cur=613Mi peak=806Mi
+shard 319/400 (g=177918) written
+MEM cur=485Mi peak=806Mi
+MEM cur=588Mi peak=806Mi
+shard 320/400 (g=177919) written
+MEM cur=493Mi peak=806Mi
+MEM cur=561Mi peak=806Mi
+shard 321/400 (g=177920) written
+MEM cur=434Mi peak=806Mi
+MEM cur=537Mi peak=806Mi
+shard 322/400 (g=177921) written
+MEM cur=255Mi peak=806Mi
+MEM cur=513Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 323/400 (g=177922) written
+MEM cur=543Mi peak=806Mi
+MEM cur=609Mi peak=806Mi
+shard 324/400 (g=177923) written
+MEM cur=515Mi peak=806Mi
+MEM cur=568Mi peak=806Mi
+shard 325/400 (g=177924) written
+MEM cur=456Mi peak=806Mi
+MEM cur=579Mi peak=806Mi
+shard 326/400 (g=177925) written
+MEM cur=255Mi peak=806Mi
+MEM cur=542Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 327/400 (g=177926) written
+MEM cur=543Mi peak=806Mi
+MEM cur=612Mi peak=806Mi
+shard 328/400 (g=177927) written
+MEM cur=515Mi peak=806Mi
+MEM cur=588Mi peak=806Mi
+shard 329/400 (g=177928) written
+MEM cur=434Mi peak=806Mi
+MEM cur=532Mi peak=806Mi
+shard 330/400 (g=177929) written
+MEM cur=255Mi peak=806Mi
+MEM cur=562Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 331/400 (g=177930) written
+MEM cur=505Mi peak=806Mi
+MEM cur=591Mi peak=806Mi
+shard 332/400 (g=177931) written
+MEM cur=475Mi peak=806Mi
+MEM cur=596Mi peak=806Mi
+shard 333/400 (g=177932) written
+MEM cur=434Mi peak=806Mi
+MEM cur=537Mi peak=806Mi
+shard 334/400 (g=177933) written
+MEM cur=255Mi peak=806Mi
+MEM cur=513Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 335/400 (g=177934) written
+MEM cur=505Mi peak=806Mi
+MEM cur=609Mi peak=806Mi
+shard 336/400 (g=177935) written
+MEM cur=515Mi peak=806Mi
+MEM cur=568Mi peak=806Mi
+shard 337/400 (g=177936) written
+MEM cur=456Mi peak=806Mi
+MEM cur=598Mi peak=806Mi
+shard 338/400 (g=177937) written
+MEM cur=255Mi peak=806Mi
+MEM cur=521Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 339/400 (g=177938) written
+MEM cur=505Mi peak=806Mi
+MEM cur=707Mi peak=806Mi
+shard 340/400 (g=177939) written
+MEM cur=514Mi peak=806Mi
+MEM cur=610Mi peak=806Mi
+shard 341/400 (g=177940) written
+MEM cur=515Mi peak=806Mi
+MEM cur=571Mi peak=806Mi
+shard 342/400 (g=177941) written
+MEM cur=274Mi peak=806Mi
+MEM cur=552Mi peak=806Mi
+shard 343/400 (g=177942) written
+MEM cur=255Mi peak=806Mi
+MEM cur=512Mi peak=806Mi
+MEM cur=612Mi peak=806Mi
+shard 344/400 (g=177943) written
+MEM cur=550Mi peak=806Mi
+MEM cur=602Mi peak=806Mi
+shard 345/400 (g=177944) written
+MEM cur=494Mi peak=806Mi
+MEM cur=596Mi peak=806Mi
+shard 346/400 (g=177945) written
+MEM cur=275Mi peak=806Mi
+MEM cur=552Mi peak=806Mi
+shard 347/400 (g=177946) written
+MEM cur=255Mi peak=806Mi
+MEM cur=546Mi peak=806Mi
+MEM cur=618Mi peak=806Mi
+shard 348/400 (g=177947) written
+MEM cur=482Mi peak=806Mi
+MEM cur=605Mi peak=806Mi
+shard 349/400 (g=177948) written
+MEM cur=475Mi peak=806Mi
+MEM cur=558Mi peak=806Mi
+shard 350/400 (g=177949) written
+MEM cur=413Mi peak=806Mi
+MEM cur=541Mi peak=806Mi
+shard 351/400 (g=177950) written
+MEM cur=255Mi peak=806Mi
+MEM cur=494Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 352/400 (g=177951) written
+MEM cur=543Mi peak=806Mi
+MEM cur=609Mi peak=806Mi
+shard 353/400 (g=177952) written
+MEM cur=515Mi peak=806Mi
+MEM cur=589Mi peak=806Mi
+shard 354/400 (g=177953) written
+MEM cur=456Mi peak=806Mi
+MEM cur=571Mi peak=806Mi
+shard 355/400 (g=177954) written
+MEM cur=255Mi peak=806Mi
+MEM cur=563Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 356/400 (g=177955) written
+MEM cur=555Mi peak=806Mi
+MEM cur=560Mi peak=806Mi
+shard 357/400 (g=177956) written
+MEM cur=480Mi peak=806Mi
+MEM cur=613Mi peak=806Mi
+shard 358/400 (g=177957) written
+MEM cur=515Mi peak=806Mi
+MEM cur=550Mi peak=806Mi
+shard 359/400 (g=177958) written
+MEM cur=255Mi peak=806Mi
+MEM cur=563Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 360/400 (g=177959) written
+MEM cur=490Mi peak=806Mi
+MEM cur=562Mi peak=806Mi
+shard 361/400 (g=177960) written
+MEM cur=480Mi peak=806Mi
+MEM cur=575Mi peak=806Mi
+shard 362/400 (g=177961) written
+MEM cur=432Mi peak=806Mi
+MEM cur=558Mi peak=806Mi
+shard 363/400 (g=177962) written
+MEM cur=282Mi peak=806Mi
+MEM cur=556Mi peak=806Mi
+shard 364/400 (g=177963) written
+MEM cur=241Mi peak=806Mi
+MEM cur=516Mi peak=806Mi
+MEM cur=586Mi peak=806Mi
+shard 365/400 (g=177964) written
+MEM cur=482Mi peak=806Mi
+MEM cur=605Mi peak=806Mi
+shard 366/400 (g=177965) written
+MEM cur=475Mi peak=806Mi
+MEM cur=631Mi peak=806Mi
+shard 367/400 (g=177966) written
+MEM cur=434Mi peak=806Mi
+MEM cur=538Mi peak=806Mi
+shard 368/400 (g=177967) written
+MEM cur=272Mi peak=806Mi
+MEM cur=535Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 369/400 (g=177968) written
+MEM cur=539Mi peak=806Mi
+MEM cur=609Mi peak=806Mi
+shard 370/400 (g=177969) written
+MEM cur=493Mi peak=806Mi
+MEM cur=585Mi peak=806Mi
+shard 371/400 (g=177970) written
+MEM cur=413Mi peak=806Mi
+MEM cur=554Mi peak=806Mi
+shard 372/400 (g=177971) written
+MEM cur=274Mi peak=806Mi
+MEM cur=517Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 373/400 (g=177972) written
+MEM cur=500Mi peak=806Mi
+MEM cur=651Mi peak=806Mi
+shard 374/400 (g=177973) written
+MEM cur=515Mi peak=806Mi
+MEM cur=610Mi peak=806Mi
+shard 375/400 (g=177974) written
+MEM cur=475Mi peak=806Mi
+MEM cur=597Mi peak=806Mi
+shard 376/400 (g=177975) written
+MEM cur=282Mi peak=806Mi
+MEM cur=590Mi peak=806Mi
+shard 377/400 (g=177976) written
+MEM cur=255Mi peak=806Mi
+MEM cur=551Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 378/400 (g=177977) written
+MEM cur=500Mi peak=806Mi
+MEM cur=588Mi peak=806Mi
+shard 379/400 (g=177978) written
+MEM cur=475Mi peak=806Mi
+MEM cur=600Mi peak=806Mi
+shard 380/400 (g=177979) written
+MEM cur=434Mi peak=806Mi
+MEM cur=513Mi peak=806Mi
+shard 381/400 (g=177980) written
+MEM cur=251Mi peak=806Mi
+MEM cur=527Mi peak=806Mi
+MEM cur=613Mi peak=806Mi
+shard 382/400 (g=177981) written
+MEM cur=486Mi peak=806Mi
+MEM cur=531Mi peak=806Mi
+shard 383/400 (g=177982) written
+MEM cur=475Mi peak=806Mi
+MEM cur=597Mi peak=806Mi
+shard 384/400 (g=177983) written
+MEM cur=313Mi peak=806Mi
+MEM cur=556Mi peak=806Mi
+shard 385/400 (g=177984) written
+MEM cur=274Mi peak=806Mi
+MEM cur=512Mi peak=806Mi
+MEM cur=591Mi peak=806Mi
+shard 386/400 (g=177985) written
+MEM cur=515Mi peak=806Mi
+MEM cur=610Mi peak=806Mi
+shard 387/400 (g=177986) written
+MEM cur=477Mi peak=806Mi
+MEM cur=583Mi peak=806Mi
+shard 388/400 (g=177987) written
+MEM cur=255Mi peak=806Mi
+MEM cur=563Mi peak=806Mi
+shard 389/400 (g=177988) written
+MEM cur=255Mi peak=806Mi
+MEM cur=551Mi peak=806Mi
+MEM cur=690Mi peak=806Mi
+shard 390/400 (g=177989) written
+MEM cur=474Mi peak=806Mi
+MEM cur=660Mi peak=806Mi
+shard 391/400 (g=177990) written
+MEM cur=475Mi peak=806Mi
+MEM cur=597Mi peak=806Mi
+shard 392/400 (g=177991) written
+MEM cur=434Mi peak=806Mi
+MEM cur=515Mi peak=806Mi
+shard 393/400 (g=177992) written
+MEM cur=255Mi peak=806Mi
+MEM cur=551Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 394/400 (g=177993) written
+MEM cur=501Mi peak=806Mi
+MEM cur=592Mi peak=806Mi
+shard 395/400 (g=177994) written
+MEM cur=498Mi peak=806Mi
+MEM cur=589Mi peak=806Mi
+shard 396/400 (g=177995) written
+MEM cur=456Mi peak=806Mi
+MEM cur=583Mi peak=806Mi
+shard 397/400 (g=177996) written
+MEM cur=256Mi peak=806Mi
+MEM cur=543Mi peak=806Mi
+MEM cur=804Mi peak=806Mi
+shard 398/400 (g=177997) written
+MEM cur=543Mi peak=806Mi
+MEM cur=613Mi peak=806Mi
+shard 399/400 (g=177998) written
+MEM cur=515Mi peak=806Mi
+MEM cur=572Mi peak=806Mi
+shard 400/400 (g=177999) written
+assigning cells against the global coarse quantizer
+MEM cur=553Mi peak=806Mi
+MEM cur=585Mi peak=806Mi
+MEM cur=632Mi peak=806Mi
+MEM cur=652Mi peak=806Mi
+MEM cur=572Mi peak=806Mi
+MEM cur=522Mi peak=806Mi
+MEM cur=733Mi peak=806Mi
+MEM cur=745Mi peak=806Mi
+MEM cur=748Mi peak=806Mi
+MEM cur=796Mi peak=806Mi
+MEM cur=721Mi peak=816Mi
+MEM cur=689Mi peak=836Mi
+MEM cur=860Mi peak=860Mi
+MEM cur=880Mi peak=880Mi
+MEM cur=898Mi peak=898Mi
+MEM cur=922Mi peak=922Mi
+MEM cur=925Mi peak=943Mi
+MEM cur=963Mi peak=963Mi
+MEM cur=995Mi peak=1003Mi
+MEM cur=997Mi peak=1005Mi
+MEM cur=876Mi peak=1025Mi
+MEM cur=1065Mi peak=1065Mi
+MEM cur=1085Mi peak=1085Mi
+MEM cur=1088Mi peak=1088Mi
+MEM cur=918Mi peak=1108Mi
+MEM cur=1012Mi peak=1128Mi
+MEM cur=1124Mi peak=1168Mi
+MEM cur=1171Mi peak=1172Mi
+MEM cur=1001Mi peak=1192Mi
+MEM cur=1111Mi peak=1212Mi
+MEM cur=1252Mi peak=1252Mi
+MEM cur=1251Mi peak=1255Mi
+MEM cur=1276Mi peak=1276Mi
+MEM cur=1314Mi peak=1314Mi
+MEM cur=1310Mi peak=1333Mi
+MEM cur=1296Mi peak=1338Mi
+MEM cur=1378Mi peak=1378Mi
+MEM cur=1397Mi peak=1398Mi
+MEM cur=1344Mi peak=1418Mi
+MEM cur=1343Mi peak=1421Mi
+MEM cur=1462Mi peak=1462Mi
+MEM cur=1480Mi peak=1480Mi
+MEM cur=1384Mi peak=1500Mi
+MEM cur=1524Mi peak=1524Mi
+MEM cur=1409Mi peak=1544Mi
+MEM cur=1389Mi peak=1564Mi
+MEM cur=1456Mi peak=1587Mi
+MEM cur=1555Mi peak=1607Mi
+MEM cur=1627Mi peak=1627Mi
+MEM cur=1506Mi peak=1667Mi
+MEM cur=1670Mi peak=1670Mi
+MEM cur=1646Mi peak=1690Mi
+MEM cur=1731Mi peak=1731Mi
+MEM cur=1751Mi peak=1751Mi
+MEM cur=1753Mi peak=1754Mi
+MEM cur=1630Mi peak=1773Mi
+MEM cur=1813Mi peak=1813Mi
+MEM cur=1773Mi peak=1833Mi
+MEM cur=1716Mi peak=1836Mi
+MEM cur=1862Mi peak=1876Mi
+MEM cur=1848Mi peak=1896Mi
+MEM cur=1809Mi peak=1916Mi
+MEM cur=1774Mi peak=1940Mi
+MEM cur=1900Mi peak=1960Mi
+MEM cur=1979Mi peak=1979Mi
+MEM cur=2003Mi peak=2003Mi
+MEM cur=2024Mi peak=2024Mi
+MEM cur=2044Mi peak=2044Mi
+MEM cur=1974Mi peak=2047Mi
+MEM cur=2024Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=1887Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=1929Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2020Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=1871Mi peak=2047Mi
+MEM cur=1993Mi peak=2047Mi
+MEM cur=1894Mi peak=2047Mi
+MEM cur=1899Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=1867Mi peak=2047Mi
+MEM cur=2044Mi peak=2047Mi
+MEM cur=1885Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2045Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=1930Mi peak=2047Mi
+MEM cur=2038Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2046Mi peak=2047Mi
+MEM cur=2008Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2047Mi peak=2047Mi
+MEM cur=2018Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=1894Mi peak=2048Mi
+MEM cur=1904Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=1953Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2009Mi peak=2048Mi
+MEM cur=1859Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1908Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1893Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2009Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1866Mi peak=2048Mi
+MEM cur=1874Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1980Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1914Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1912Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1937Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1909Mi peak=2048Mi
+MEM cur=1847Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2020Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1932Mi peak=2048Mi
+MEM cur=1924Mi peak=2048Mi
+MEM cur=1940Mi peak=2048Mi
+MEM cur=1987Mi peak=2048Mi
+MEM cur=2014Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=1885Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1973Mi peak=2048Mi
+MEM cur=1881Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1984Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=1985Mi peak=2048Mi
+MEM cur=2021Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1994Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2001Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2002Mi peak=2048Mi
+MEM cur=1863Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1858Mi peak=2048Mi
+MEM cur=1888Mi peak=2048Mi
+MEM cur=1957Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1950Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=1963Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=1918Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1844Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1941Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=1922Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1928Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1997Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=1905Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1962Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=2036Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1909Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2015Mi peak=2048Mi
+MEM cur=1939Mi peak=2048Mi
+MEM cur=1953Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=1969Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1943Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1913Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1938Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1877Mi peak=2048Mi
+MEM cur=1962Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1889Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1966Mi peak=2048Mi
+MEM cur=1969Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1959Mi peak=2048Mi
+MEM cur=1963Mi peak=2048Mi
+MEM cur=1882Mi peak=2048Mi
+MEM cur=1989Mi peak=2048Mi
+MEM cur=1844Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1970Mi peak=2048Mi
+MEM cur=2017Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2033Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=2037Mi peak=2048Mi
+MEM cur=1913Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=1920Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2030Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1908Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1888Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=1878Mi peak=2048Mi
+MEM cur=1913Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1909Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1953Mi peak=2048Mi
+MEM cur=1908Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1964Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1915Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1984Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1882Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1869Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1894Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2008Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=1931Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1929Mi peak=2048Mi
+MEM cur=2020Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1933Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1911Mi peak=2048Mi
+MEM cur=1998Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1920Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1963Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1960Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2003Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2023Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1952Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1943Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1998Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1988Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1893Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1911Mi peak=2048Mi
+MEM cur=1944Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1908Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1863Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1920Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1883Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1842Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1992Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1908Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1963Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1954Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=1910Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1959Mi peak=2048Mi
+MEM cur=2037Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2028Mi peak=2048Mi
+MEM cur=1954Mi peak=2048Mi
+MEM cur=1924Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1884Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2032Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1974Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1984Mi peak=2048Mi
+MEM cur=1843Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2028Mi peak=2048Mi
+MEM cur=1893Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1906Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1860Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2018Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1930Mi peak=2048Mi
+MEM cur=1964Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1930Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=2021Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2018Mi peak=2048Mi
+MEM cur=1922Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1884Mi peak=2048Mi
+MEM cur=1957Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2015Mi peak=2048Mi
+MEM cur=1848Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2004Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1921Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1858Mi peak=2048Mi
+MEM cur=2037Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1904Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1944Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1895Mi peak=2048Mi
+MEM cur=1845Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=1918Mi peak=2048Mi
+MEM cur=1892Mi peak=2048Mi
+MEM cur=2023Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1859Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1971Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1854Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=1859Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=1889Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1942Mi peak=2048Mi
+MEM cur=1952Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2005Mi peak=2048Mi
+MEM cur=1958Mi peak=2048Mi
+MEM cur=2002Mi peak=2048Mi
+MEM cur=1891Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1902Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1986Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1913Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=1902Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2040Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1866Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2008Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=1991Mi peak=2048Mi
+MEM cur=1977Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2014Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1972Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1923Mi peak=2048Mi
+MEM cur=1847Mi peak=2048Mi
+MEM cur=2008Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1920Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2014Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1876Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1914Mi peak=2048Mi
+MEM cur=2005Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1891Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1882Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=1945Mi peak=2048Mi
+MEM cur=1876Mi peak=2048Mi
+MEM cur=1927Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1853Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1998Mi peak=2048Mi
+MEM cur=2007Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=1997Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2015Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1954Mi peak=2048Mi
+MEM cur=2039Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1875Mi peak=2048Mi
+MEM cur=1996Mi peak=2048Mi
+MEM cur=1970Mi peak=2048Mi
+MEM cur=1991Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2029Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1966Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1903Mi peak=2048Mi
+MEM cur=1840Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1982Mi peak=2048Mi
+MEM cur=1865Mi peak=2048Mi
+MEM cur=1929Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1967Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=1861Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1924Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2008Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1865Mi peak=2048Mi
+MEM cur=1968Mi peak=2048Mi
+MEM cur=1982Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1869Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1869Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1998Mi peak=2048Mi
+MEM cur=1976Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1914Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1944Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1868Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1963Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1866Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1882Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1980Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1957Mi peak=2048Mi
+MEM cur=2014Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1967Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1859Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2010Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=1876Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=2030Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1898Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2007Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1906Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1894Mi peak=2048Mi
+MEM cur=1949Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1951Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2003Mi peak=2048Mi
+MEM cur=1958Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1940Mi peak=2048Mi
+MEM cur=1892Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1902Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1861Mi peak=2048Mi
+MEM cur=2002Mi peak=2048Mi
+MEM cur=2012Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2004Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1877Mi peak=2048Mi
+MEM cur=1848Mi peak=2048Mi
+MEM cur=1895Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2002Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1861Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1929Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1911Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2019Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1977Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=2011Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=1938Mi peak=2048Mi
+MEM cur=1935Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1971Mi peak=2048Mi
+MEM cur=1848Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=1996Mi peak=2048Mi
+MEM cur=1968Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1928Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1878Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1902Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1966Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1898Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1956Mi peak=2048Mi
+MEM cur=1965Mi peak=2048Mi
+MEM cur=2020Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=1881Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1878Mi peak=2048Mi
+MEM cur=2027Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1943Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1970Mi peak=2048Mi
+MEM cur=1988Mi peak=2048Mi
+MEM cur=1913Mi peak=2048Mi
+MEM cur=1932Mi peak=2048Mi
+MEM cur=1935Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1922Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2016Mi peak=2048Mi
+MEM cur=1920Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2040Mi peak=2048Mi
+MEM cur=1951Mi peak=2048Mi
+MEM cur=1988Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1996Mi peak=2048Mi
+MEM cur=1974Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1967Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1967Mi peak=2048Mi
+MEM cur=1945Mi peak=2048Mi
+MEM cur=2003Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1860Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1915Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2016Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1895Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1859Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2008Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2036Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=1898Mi peak=2048Mi
+MEM cur=2034Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2001Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1944Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1904Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1962Mi peak=2048Mi
+MEM cur=1894Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1982Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1958Mi peak=2048Mi
+MEM cur=1890Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2039Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1941Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1951Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=1946Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1951Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2015Mi peak=2048Mi
+MEM cur=1874Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=1945Mi peak=2048Mi
+MEM cur=1854Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=1958Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1954Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2036Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1883Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1923Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=2012Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1942Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1987Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1974Mi peak=2048Mi
+MEM cur=2022Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1992Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1931Mi peak=2048Mi
+MEM cur=1981Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1903Mi peak=2048Mi
+MEM cur=1983Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1972Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2030Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2004Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=1966Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1933Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=1976Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1858Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1998Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1887Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2014Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1874Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1979Mi peak=2048Mi
+MEM cur=1957Mi peak=2048Mi
+MEM cur=1856Mi peak=2048Mi
+MEM cur=1879Mi peak=2048Mi
+MEM cur=1884Mi peak=2048Mi
+MEM cur=1884Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1951Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1964Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1858Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1967Mi peak=2048Mi
+MEM cur=2001Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1958Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1862Mi peak=2048Mi
+MEM cur=2031Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2000Mi peak=2048Mi
+MEM cur=1977Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1872Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1869Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1883Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2000Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1897Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2043Mi peak=2048Mi
+MEM cur=1911Mi peak=2048Mi
+MEM cur=1930Mi peak=2048Mi
+MEM cur=1881Mi peak=2048Mi
+MEM cur=1918Mi peak=2048Mi
+MEM cur=1994Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2009Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1930Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1902Mi peak=2048Mi
+MEM cur=1938Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1917Mi peak=2048Mi
+MEM cur=1885Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1917Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1895Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=2006Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1873Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1929Mi peak=2048Mi
+MEM cur=2032Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2034Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1887Mi peak=2048Mi
+MEM cur=1898Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1977Mi peak=2048Mi
+MEM cur=1901Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=1906Mi peak=2048Mi
+MEM cur=1847Mi peak=2048Mi
+MEM cur=1932Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1903Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2029Mi peak=2048Mi
+MEM cur=1906Mi peak=2048Mi
+MEM cur=1925Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1941Mi peak=2048Mi
+MEM cur=2003Mi peak=2048Mi
+MEM cur=1870Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1876Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1867Mi peak=2048Mi
+MEM cur=1978Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=1926Mi peak=2048Mi
+MEM cur=1995Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1863Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2006Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=1892Mi peak=2048Mi
+MEM cur=1900Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1999Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1914Mi peak=2048Mi
+MEM cur=1990Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1964Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1936Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2020Mi peak=2048Mi
+MEM cur=2039Mi peak=2048Mi
+MEM cur=1916Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1976Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1871Mi peak=2048Mi
+MEM cur=1898Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1928Mi peak=2048Mi
+MEM cur=1955Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1886Mi peak=2048Mi
+MEM cur=2020Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1919Mi peak=2048Mi
+MEM cur=1896Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2038Mi peak=2048Mi
+MEM cur=1854Mi peak=2048Mi
+MEM cur=1899Mi peak=2048Mi
+MEM cur=1891Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=1888Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1847Mi peak=2048Mi
+MEM cur=2011Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2025Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=1854Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2035Mi peak=2048Mi
+MEM cur=1972Mi peak=2048Mi
+MEM cur=1855Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1888Mi peak=2048Mi
+MEM cur=1934Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1864Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1854Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1938Mi peak=2048Mi
+MEM cur=1993Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1846Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=1847Mi peak=2048Mi
+MEM cur=2044Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=1852Mi peak=2048Mi
+MEM cur=2045Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=2026Mi peak=2048Mi
+MEM cur=2046Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1918Mi peak=2048Mi
+MEM cur=2047Mi peak=2048Mi
+MEM cur=1952Mi peak=2048Mi
+MEM cur=1642Mi peak=2048Mi
+MEM cur=1647Mi peak=2048Mi
+MEM cur=1652Mi peak=2048Mi
+{"server": 444, "rows": 2000000000, "index_bytes": 48009656624, "bytes_per_row": 24.0}
+BUILD_DONE
