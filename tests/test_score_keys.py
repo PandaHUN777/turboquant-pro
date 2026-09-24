@@ -38,7 +38,7 @@ def _cell(tmp_path, arm, **override):
         )
         staged = {
             k: env[k]
-            for k in ("KEY_BASIS", "BASIS_FIT", "KEY_ALLOC", "BYTE_MATCH")
+            for k in ("KEY_BASIS", "BASIS_FIT", "KEY_ALLOC", "BYTE_MATCH", "KEY_JITTER")
             if k in env
         }
         if staged:
@@ -47,6 +47,7 @@ def _cell(tmp_path, arm, **override):
                 "basis_fit": env.get("BASIS_FIT", "prefill"),
                 "key_alloc": env.get("KEY_ALLOC", "uniform"),
                 "byte_match": int(env.get("BYTE_MATCH", 0)),
+                "key_jitter": int(env.get("KEY_JITTER", 0)),
             }
     cfg.update(override)
     d = tmp_path / arm
@@ -56,7 +57,7 @@ def _cell(tmp_path, arm, **override):
 
 
 @pytest.mark.parametrize(
-    "arm", ["fp16", "nf4a", "nf4a_bm", "nf4a_O", "u3_read", "u2_O_read"]
+    "arm", ["fp16", "nf4a", "nf4a_jit", "nf4a_bm", "nf4a_O", "u3_read", "u2_O_read"]
 )
 def test_registered_cells_verify(tmp_path, arm):
     cell, env = _cell(tmp_path, arm)

@@ -36,7 +36,7 @@ ARMS: dict[str, str] = {"fp16": "NOQUANT=1"}
 ARMS.update(
     {
         "nf4a": _arm("nf4a", 4),
-        "nf4a_rep": _arm("nf4a", 4),  # run-to-run floor of the shipped arm
+        "nf4a_jit": _arm("nf4a", 4, KEY_JITTER=1),  # fp16-rounding floor
         "nf4a_bm": _arm("nf4a", 4, BYTE_MATCH=1),  # native at a dense basis's bytes
         "nf4a_O": _arm("nf4a", 4, KEY_BASIS="O"),  # REGISTERED O
         "nf4a_Oey": _arm("nf4a", 4, KEY_BASIS="Oey"),
@@ -52,7 +52,7 @@ for b in (4, 3, 2):
     ARMS.update(
         {
             f"u{b}": _arm("uniform", b),
-            f"u{b}_rep": _arm("uniform", b),
+            f"u{b}_jit": _arm("uniform", b, KEY_JITTER=1),
             f"u{b}_O": _arm("uniform", b, KEY_BASIS="O"),
             f"u{b}_R": _arm("uniform", b, KEY_BASIS="R"),
             f"u{b}_read": _arm("uniform", b, KEY_ALLOC="read"),  # native channels
@@ -67,22 +67,23 @@ G0_ARMS = {
 }
 G0_ARMS["g0_O_read"] = _arm("identity", 4, KEY_BASIS="O", KEY_ALLOC="read")
 
-# (arm, reference, floor arm): the floor is |mean(floor) - mean(reference)|.
+# (arm, reference, floor arm): the floor is |mean(floor) - mean(reference)|, the
+# reference moved by a one-ulp jitter of every key (runs are bit-deterministic).
 COMPARISONS = {
-    "K1": [("nf4a_O", "nf4a_bm", "nf4a_rep")],
-    "K1_low": [("u3_O", "u3", "u3_rep")],
-    "K2": [("nf4a_O", "nf4a_Ofor", "nf4a_rep")],
-    "K3": [("nf4a_O", r, "nf4a_rep") for r in ("nf4a_P", "nf4a_R", "nf4a_H")],
-    "K4": [("u3_read", "u3", "u3_rep")],
-    "K4b": [("u3_read", "u3_key", "u3_rep")],
+    "K1": [("nf4a_O", "nf4a_bm", "nf4a_jit")],
+    "K1_low": [("u3_O", "u3", "u3_jit")],
+    "K2": [("nf4a_O", "nf4a_Ofor", "nf4a_jit")],
+    "K3": [("nf4a_O", r, "nf4a_jit") for r in ("nf4a_P", "nf4a_R", "nf4a_H")],
+    "K4": [("u3_read", "u3", "u3_jit")],
+    "K4b": [("u3_read", "u3_key", "u3_jit")],
 }
 REPORTED = [
-    ("nf4a_O", "nf4a", "nf4a_rep"),
-    ("nf4a_Oey", "nf4a_O", "nf4a_rep"),
-    ("nf4a_Ocal", "nf4a_O", "nf4a_rep"),
-    ("nf4a_bm", "nf4a", "nf4a_rep"),
+    ("nf4a_O", "nf4a", "nf4a_jit"),
+    ("nf4a_Oey", "nf4a_O", "nf4a_jit"),
+    ("nf4a_Ocal", "nf4a_O", "nf4a_jit"),
+    ("nf4a_bm", "nf4a", "nf4a_jit"),
 ] + [
-    (f"u{b}_{x}", f"u{b}", f"u{b}_rep")
+    (f"u{b}_{x}", f"u{b}", f"u{b}_jit")
     for b in (4, 3, 2)
     for x in ("O", "R", "read", "key", "O_read")
 ]

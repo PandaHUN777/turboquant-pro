@@ -52,6 +52,7 @@ STAGE_VARS = (
     "ALLOC_BMIN",
     "ALLOC_BMAX",
     "BASIS_CALIB",
+    "KEY_JITTER",
 )
 
 
@@ -143,8 +144,36 @@ def test_balanced_split_preserves_every_logit():
 def test_g0_identity_codebook_returns_native_keys(basis):
     kc = _kc(KEY_BASIS=basis)
     k, q = _keys_queries()
+    k = k.half()
     out = kc.code_keys(k, q, layer=3, quantize=lambda z, bits: z, key_bits=4)
-    torch.testing.assert_close(out, k, rtol=1e-4, atol=1e-4)
+    assert torch.equal(out, k)  # bit for bit: the residual form
+
+
+@pytest.mark.parametrize("basis", ["P", "O", "R", "O_foreign"])
+def test_quantization_error_is_carried_back_through_the_inverse(basis):
+    kc = _kc(KEY_BASIS=basis)
+    k, q = _keys_queries()
+    s, c = kc.key_moment(k), kc.query_moment(q, k.shape[1])
+    bmap = kc.key_map(basis, s, c, 3, k.shape[1], k.shape[3])
+    delta = 1e-3 * torch.arange(k.shape[3], dtype=torch.float32)  # per coded coordinate
+    out = kc.code_keys(k, q, layer=3, quantize=lambda z, bits: z + delta, key_bits=4)
+    want = (
+        k.double()
+        + torch.einsum("hij,j->hi", torch.linalg.inv(bmap), delta.double())[
+            None, :, None, :
+        ]
+    )
+    torch.testing.assert_close(out.double(), want, rtol=1e-5, atol=1e-6)
+
+
+def test_jitter_moves_every_key_by_exactly_one_ulp():
+    kc = _kc(KEY_JITTER=1, BASIS_SEED=3)
+    k = _keys_queries()[0].half()
+    j = kc.jitter(k, layer=5)
+    steps = (j.view(torch.int16).int() - k.view(torch.int16).int()).abs()
+    assert (steps == 1).all()
+    assert torch.equal(j, kc.jitter(k, layer=5))  # seeded
+    assert (j.float() - k.float()).abs().max() < 0.01
 
 
 @pytest.mark.parametrize("basis", ["P", "O", "R"])

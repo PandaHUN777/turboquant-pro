@@ -24,13 +24,21 @@ every combination runs through the same harness and the same codebooks:
       key        water-filling on Var((B k)_j) alone: reconstruction error
   BYTE_MATCH  0 | 1: add fp16 outliers worth exactly the bytes a dense basis
               stores, so a native arm can be compared at matched stored bytes.
+  KEY_JITTER  0 | 1: move every settled key element one fp16 ulp up or down
+              (seeded) before coding. An inconsequential perturbation: the arm
+              measures how far the endpoints move under fp16 rounding alone,
+              the noise floor of every comparison (runs are bit-deterministic,
+              so a plain repeat would measure nothing).
 
-Keys are coded as ``z = B k`` and the cache holds ``k_hat = B^-1 Q(z)``; every
-logit is then ``q . k_hat = (B^-T q) . Q(B k)``, so at full dimension a basis
-changes only what the codebook sees. With the codebook replaced by the identity,
-every basis reproduces the native keys to float error (gate G0 of the
-registration). Sink tokens and outliers are kept fp16 in the coded coordinates,
-so they are exact after inversion.
+Keys are coded as ``z = B k`` and the cache holds
+``k_hat = k + B^-1 (Q(z) - z)``, which is ``B^-1 Q(z)`` in exact arithmetic; every
+logit is then ``(B^-T q) . Q(B k)``, so at full dimension a basis changes only what
+the codebook sees. The residual form carries only the quantization error through
+the inverse, so with the codebook replaced by the identity every basis returns the
+native keys bit for bit (gate G0 of the registration); the direct form moved a few
+near-zero entries by one fp16 ulp, which fp16 inference amplified to ~0.1%
+perplexity (smoke, 2026-09-24). Sink tokens and outliers are kept fp16 in the coded
+coordinates, so their residual is zero.
 
 Stored-byte accounting (``account``) is per (layer, KV head): code bits, codebook
 metadata, outliers at (16-bit value + 16-bit index), a dense basis at D*D fp16
@@ -49,6 +57,7 @@ KEY_BASIS = os.environ.get("KEY_BASIS", "native")
 BASIS_FIT = os.environ.get("BASIS_FIT", "prefill")
 KEY_ALLOC = os.environ.get("KEY_ALLOC", "uniform")
 BYTE_MATCH = int(os.environ.get("BYTE_MATCH", "0"))
+KEY_JITTER = int(os.environ.get("KEY_JITTER", "0"))
 BASIS_SEED = int(os.environ.get("BASIS_SEED", "0"))
 ALLOC_BMIN = int(os.environ.get("ALLOC_BMIN", "1"))
 ALLOC_BMAX = int(os.environ.get("ALLOC_BMAX", "8"))
@@ -68,7 +77,8 @@ OUTLIER_BITS = 32  # fp16 value + 16-bit position
 
 def active() -> bool:
     """True when any stage departs from the shipped key path."""
-    return KEY_BASIS != "native" or KEY_ALLOC != "uniform" or bool(BYTE_MATCH)
+    return (KEY_BASIS != "native" or KEY_ALLOC != "uniform" or bool(BYTE_MATCH)
+            or bool(KEY_JITTER))
 
 
 def needs_queries() -> bool:
@@ -102,7 +112,7 @@ def validate(codebook: str, prerope: int, noquant: int) -> None:
 def config() -> dict:
     return {
         "key_basis": KEY_BASIS, "basis_fit": BASIS_FIT, "key_alloc": KEY_ALLOC,
-        "byte_match": BYTE_MATCH, "basis_seed": BASIS_SEED,
+        "byte_match": BYTE_MATCH, "key_jitter": KEY_JITTER, "basis_seed": BASIS_SEED,
         "alloc_bmin": ALLOC_BMIN, "alloc_bmax": ALLOC_BMAX,
         "basis_calib_n": BASIS_CALIB_N if BASIS_FIT == "calib" else 0,
     }
@@ -293,6 +303,17 @@ def account(n: int, h: int, d: int, key_bits: int, group: int, out_frac: float,
             "alloc": alloc, "total": code + meta + outl + basis + alloc}
 
 
+def jitter(k: torch.Tensor, layer: int) -> torch.Tensor:
+    """Every element moved one fp16 ulp up or down, seeded by (BASIS_SEED, layer)."""
+    if k.element_size() != 2:
+        raise SystemExit(f"KEY_JITTER needs 16-bit keys, got {k.dtype}")
+    g = torch.Generator(device=k.device).manual_seed(BASIS_SEED * 7919 + layer)
+    step = (torch.rand(k.shape, generator=g, device=k.device) < 0.5).to(torch.int16) * 2 - 1
+    # Adjacent 16-bit float encodings are adjacent magnitudes: +-1 on the bit
+    # pattern is one ulp (towards or away from zero), for every finite value.
+    return (k.contiguous().view(torch.int16) + step).view(k.dtype)
+
+
 def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int):
     """Code settled keys k (B, H_kv, n, D) through the active stages.
 
@@ -312,5 +333,6 @@ def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int):
     binv = torch.linalg.inv(bmap)
     z = torch.einsum("hij,bhnj->bhni", bmap, k.double())
     bits = allocation(z, binv.transpose(-1, -2), c, key_bits) if KEY_ALLOC != "uniform" else None
-    zq = quantize(z.float(), bits).double()
-    return torch.einsum("hij,bhnj->bhni", binv, zq).to(k.dtype)
+    z32 = z.float()
+    resid = (quantize(z32, bits).float() - z32).double()
+    return (k.double() + torch.einsum("hij,bhnj->bhni", binv, resid)).to(k.dtype)

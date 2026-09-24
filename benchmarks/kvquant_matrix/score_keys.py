@@ -16,7 +16,8 @@ Units of comparison are paired: LongBench per-sample score (the official metric,
 first-line rule for trec/triviaqa) and WikiText-2 per-chunk NLL per token. For arm
 X against reference Y: mean paired difference (positive = X better), a 95%
 percentile bootstrap interval over the pairing units (10,000 resamples, seed 0),
-and the run-to-run floor |mean(Y_rep) - mean(Y)| from the reference's repeat arm.
+and the floor |mean(Y_jit) - mean(Y)|: the reference moved by a one-ulp jitter of
+every key, i.e. by fp16 rounding alone (runs are bit-deterministic).
 X is MATERIALLY BETTER when the interval's lower end is above 0 and the mean
 exceeds twice the floor; MATERIALLY WORSE symmetrically.
 """
@@ -37,8 +38,8 @@ import keys_grid as KG  # noqa: E402
 
 N_BOOT = 10_000
 FIRST_LINE = {"trec", "triviaqa", "samsum", "lsht"}
-G0_MIN_SAME = 0.99  # share of trec predictions identical to g0_native
-G0_PPL_REL = 1e-3  # |ppl / ppl_fp16 - 1|
+G0_MIN_SAME = 1.0  # share of trec predictions identical to g0_native
+G0_PPL_REL = 1e-6  # |ppl / ppl_g0_native - 1|: the residual form is exact
 
 
 def _env(line: str) -> dict:
@@ -66,7 +67,8 @@ def verify(cell: str, arm_env: dict) -> str | None:
             return f"{k}={c.get(k)!r}, registered {v!r}"
     kc = c.get("key_coding")
     stages = {"KEY_BASIS": ("key_basis", "native"), "BASIS_FIT": ("basis_fit", "prefill"),
-              "KEY_ALLOC": ("key_alloc", "uniform"), "BYTE_MATCH": ("byte_match", "0")}
+              "KEY_ALLOC": ("key_alloc", "uniform"), "BYTE_MATCH": ("byte_match", "0"),
+              "KEY_JITTER": ("key_jitter", "0")}
     staged = any(arm_env.get(e, d) != d for e, (_, d) in stages.items())
     if staged != (kc is not None):
         return "key-coding record missing" if staged else "unexpected key-coding record"

@@ -516,7 +516,10 @@ def _code_settled_keys(ks, li):
     n, H, D = ks.shape[2], ks.shape[1], ks.shape[3]
     extra = KC.extra_outlier_frac(n, D, KB)
     _ACCT.append(KC.account(n, H, D, KB, G, OUT_FRAC + extra, SINK, _meta_per_group()))
-    if not KC.active():
+    if KC.KEY_JITTER:
+        ks = KC.jitter(ks, li)
+    if not KC.active() or (KC.KEY_JITTER and KC.KEY_BASIS == "native"
+                           and KC.KEY_ALLOC == "uniform" and not KC.BYTE_MATCH):
         return qdq_key_block(ks)
     return KC.code_keys(ks, _LAST_Q, li,
                         lambda z, bits: qdq_key_block(z, bits, extra), KB)
