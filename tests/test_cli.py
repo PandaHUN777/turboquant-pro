@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 
-from jsonschema import Draft202012Validator, ValidationError
 import numpy as np
 import pytest
 
@@ -19,7 +18,6 @@ from turboquant_pro.cli import build_parser, main
 from turboquant_pro.schemas import load_schema
 
 IN_TREE = {"per_channel", "polar"}
-KV_PLAN_VALIDATOR = Draft202012Validator(load_schema("kv_plan.schema.json"))
 
 
 # ------------------------------------------------------------------ fixtures
@@ -545,8 +543,14 @@ def test_plan_embeddings_requires_arg():
 
 
 # ------------------------------------------------------------------ plan kv
+KV_PLAN_SCHEMA = "kv_plan.schema.json"
+
+
 def _validate_kv_plan(doc: dict) -> None:
-    KV_PLAN_VALIDATOR.validate(doc)
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = load_schema(KV_PLAN_SCHEMA)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.validate(doc, schema)
 
 
 def test_plan_kv_registry_model(capsys):
@@ -580,8 +584,9 @@ def test_plan_kv_schema_rejects_missing_required_policy_field(capsys):
     _validate_kv_plan(doc)
 
     del doc["policy"]["head_dim"]
-    with pytest.raises(ValidationError):
-        _validate_kv_plan(doc)
+    jsonschema = pytest.importorskip("jsonschema")
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, load_schema(KV_PLAN_SCHEMA))
 
 
 def test_plan_kv_unresolved_model_exit_2(capsys):
