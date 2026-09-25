@@ -14,9 +14,13 @@ tasks; this runs the four phases that follow it the same way, in order:
 Each phase is a pool of ``MAXPAR`` jobs in flight with no wave barrier, every
 submission through the existing ``burst.submit`` NATS flow (the controller's
 politeness layer caps concurrency at 20 and paces submissions), job state read
-by ``kubectl get``, and the same failure handling as the build pool: NotFound
-confirmed across two polls, wedged jobs recycled, vanished or failed jobs
-re-issued up to ``MAXTRIES``. Every phase script is idempotent on the volume,
+by ``kubectl get``, and the same failure handling as the build pool: wedged
+jobs recycled, vanished or failed jobs re-issued up to ``MAXTRIES``. A Job the
+controller has accepted but not yet created is not vanished: the politeness
+layer defers creation while five of the namespace's Jobs are pending or the
+cluster is busy, retrying for up to about an hour, so a submitted Job is
+waited on for ``HELD_POLLS`` polls before it is treated as lost and
+re-issued. Re-issuing sooner only queues a duplicate behind the original. Every phase script is idempotent on the volume,
 so a re-issued job resumes at its own partial.
 
 Query count. The 100B run used 500 queries (4 shards x 125). This run uses
@@ -43,11 +47,23 @@ from nats_bursting import Client, JobDescriptor, Resources, Volume  # noqa: E402
 NS = "ssu-atlas-ai"
 N_SERVERS = int(os.environ.get("TQP_N_SERVERS", "500"))
 MAXPAR = int(os.environ.get("TQP_POOL_MAXPAR", "20"))
-MAXTRIES = int(os.environ.get("TQP_MAXTRIES", "12"))
+MAXTRIES = int(os.environ.get("TQP_MAXTRIES", "40"))
+# A re-issue after a failure waits this long times 2^(tries-1), capped: volume attach errors
+# on a node that went NotReady clear on the CSI's timeout, minutes, not seconds, and a fast
+# retry loop only burns the budget against the same dead attachment.
+BACKOFF_S = int(os.environ.get("TQP_BACKOFF_S", "120"))
+BACKOFF_MAX_S = int(os.environ.get("TQP_BACKOFF_MAX_S", "1800"))
+# Parked servers are swept again this many times, this far apart, before the run stops.
+SWEEPS = int(os.environ.get("TQP_SWEEPS", "12"))
+SWEEP_GAP_S = int(os.environ.get("TQP_SWEEP_GAP_S", "1800"))
 WEDGE_S = int(
     os.environ.get("TQP_WEDGE_S", str(16 * 3600))
 )  # 100B ref max was 11.4 h at nq=500
 PEND_S = int(os.environ.get("TQP_PEND_S", "2700"))
+# Polls (one a minute) a submitted Job may stay uncreated before it is re-issued. The
+# controller retries a deferred submission up to 15 times with backoff up to 15 min.
+HELD_POLLS = int(os.environ.get("TQP_HELD_POLLS", "90"))
+HELD_NOTE_POLLS = 5
 POLL_S = 60
 STATE_PATH = os.environ.get("TQP_POST_STATE", "/home/claude/tqp_fleet/post_state.json")
 SCORE_LOG = os.environ.get("TQP_SCORE_LOG", "/home/claude/tqp_fleet/score_1T.log")
@@ -174,6 +190,9 @@ class Pool:
         self.done: set[int] = set()
         self.parked: set[int] = set()
         self.active: dict[int, dict] = {}
+        self.waiting: dict[int, dict] = (
+            {}
+        )  # sid -> {until, tries, pendfails}: backoff before re-issue
         self._load()
 
     def _state(self) -> dict:
@@ -202,16 +221,30 @@ class Pool:
     def name(self, sid: int) -> str:
         return self.make(sid).name
 
-    def _submit(self, sid: int, tries: int) -> None:
-        with Client() as client:
-            res = client.submit(self.make(sid))
+    def _submit(self, sid: int, tries: int, pendfails: int = 0) -> bool:
+        try:
+            with Client() as client:
+                res = client.submit(self.make(sid))
+        except (
+            Exception
+        ) as e:  # noqa: BLE001  the controller or NATS being down must not end the run
+            log(
+                f"SUBMIT FAILED {self.name(sid)}: {type(e).__name__}: {str(e)[:120]}; will retry"
+            )
+            self.waiting[sid] = {
+                "until": time.time() + BACKOFF_S,
+                "tries": tries,
+                "pendfails": pendfails,
+            }
+            return False
         self.active[sid] = {
             "t0": time.time(),
             "tries": tries,
             "notfound": 0,
-            "pendfails": self.active.get(sid, {}).get("pendfails", 0),
+            "pendfails": pendfails,
         }
         log(f"SUBMIT {self.name(sid)} try {tries}/{MAXTRIES} job_id={res.job_id}")
+        return True
 
     def _delete_job(self, sid: int) -> None:
         subprocess.run(
@@ -237,13 +270,39 @@ class Pool:
             self._save()
             return
         log(f"RECYCLE {self.name(sid)}: {why}")
+        if why == "job failed":
+            # Keep the evidence before the job is deleted: the pod's exit reason and its last lines.
+            pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}") or {
+                "items": []
+            }
+            for p in pods["items"]:
+                for cs in p["status"].get("containerStatuses", []):
+                    t = (
+                        cs.get("state", {}).get("terminated")
+                        or cs.get("lastState", {}).get("terminated")
+                        or {}
+                    )
+                    log(
+                        f"  {p['metadata']['name']} exit={t.get('exitCode')} reason={t.get('reason')}"
+                    )
+                r = subprocess.run(
+                    ["kubectl", "-n", NS, "logs", p["metadata"]["name"], "--tail=3"],
+                    capture_output=True,
+                    text=True,
+                )
+                for line in r.stdout.strip().splitlines()[-3:]:
+                    log(f"  | {line[:160]}")
         self._delete_job(sid)
-        for _ in range(20):
-            time.sleep(15)
-            pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}")
-            if pods is not None and not pods.get("items"):
-                break
-        self._submit(sid, st["tries"] + 1)
+        # Re-issue after a backoff that doubles with the server's failures. The wait is kept as
+        # a timestamp so the poll loop, and every other server, keeps moving meanwhile.
+        delay = min(BACKOFF_S * 2 ** (st["tries"] - 1), BACKOFF_MAX_S)
+        self.waiting[sid] = {
+            "until": time.time() + delay,
+            "tries": st["tries"] + 1,
+            "pendfails": st.get("pendfails", 0),
+        }
+        del self.active[sid]
+        log(f"BACKOFF {self.name(sid)} {delay}s before try {st['tries'] + 1}")
 
     def poll(self) -> None:
         jobs = kubectl_json("get", "jobs", "-l", "app=tqp-fleet")
@@ -256,8 +315,12 @@ class Pool:
             j = by_name.get(name)
             if j is None:
                 st["notfound"] += 1
-                if st["notfound"] >= 2:
-                    self._recycle(sid, "job vanished (confirmed)")
+                if st["notfound"] == HELD_NOTE_POLLS:
+                    log(
+                        f"HELD {name} not created after {HELD_NOTE_POLLS} polls, waiting on the controller"
+                    )
+                if st["notfound"] >= HELD_POLLS:
+                    self._recycle(sid, f"job vanished (unseen for {HELD_POLLS} polls)")
                 continue
             st["notfound"] = 0
             status = j.get("status", {})
@@ -290,6 +353,16 @@ class Pool:
                         self._save()
                     else:
                         self._recycle(sid, "no Running pod after 45m")
+        # Servers whose backoff has elapsed go first, if their pods are gone.
+        now = time.time()
+        for sid in [k for k, v in self.waiting.items() if v["until"] <= now]:
+            if len(self.active) >= MAXPAR:
+                break
+            pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}")
+            if pods is None or pods.get("items"):
+                continue  # API unclear, or the old pod still detaching: wait another cycle
+            w = self.waiting.pop(sid)
+            self._submit(sid, w["tries"], w["pendfails"])
         while len(self.active) < MAXPAR and self.pool:
             sid = self.pool.pop(0)
             j = by_name.get(self.name(sid))
@@ -305,7 +378,7 @@ class Pool:
             self._submit(sid, 1)
 
     def run(self) -> bool:
-        while self.pool or self.active:
+        while self.pool or self.active or self.waiting:
             self.poll()
             time.sleep(POLL_S)
         log(
@@ -313,16 +386,42 @@ class Pool:
         )
         return not self.parked
 
+    def sweep(self) -> bool:
+        """Another pass over the parked servers with a fresh retry budget."""
+        if not self.parked:
+            return True
+        self.pool = sorted(self.parked)
+        self.parked = set()
+        log(f"{self.phase}: sweeping {len(self.pool)} parked servers again")
+        return self.run()
+
 
 def main() -> None:
     only = os.environ.get("TQP_PHASES", "qcache,ref,ivf,score").split(",")
     log(f"POST start: phases {only}, servers {N_SERVERS}, MAXPAR={MAXPAR}, nq=100")
+    pools = []
     for phase, make, ids in PHASES:
         if phase not in only:
             continue
-        if not Pool(phase, make, ids).run():
-            log(f"POST stopped: {phase} left servers parked")
-            sys.exit(1)
+        if phase == "score" and any(p.parked for p in pools):
+            # The score needs every partial. Sweep the parked servers of the earlier phases,
+            # spaced out, before it runs; the run stops only when the sweeps are exhausted.
+            for n in range(SWEEPS):
+                if all(p.sweep() for p in pools):
+                    break
+                log(
+                    f"sweep {n + 1}/{SWEEPS} left servers parked; next in {SWEEP_GAP_S}s"
+                )
+                time.sleep(SWEEP_GAP_S)
+            if any(p.parked for p in pools):
+                log(
+                    f"POST stopped: parked after {SWEEPS} sweeps: "
+                    + str({p.phase: sorted(p.parked) for p in pools if p.parked})
+                )
+                sys.exit(1)
+        pool = Pool(phase, make, ids)
+        pool.run()  # a parked server does not stop the phase or the next one
+        pools.append(pool)
     r = subprocess.run(
         ["kubectl", "-n", NS, "logs", "job/aqx-score1t", "--tail=40"],
         capture_output=True,
