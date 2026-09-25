@@ -12,11 +12,14 @@ import json
 
 import numpy as np
 import pytest
+from jsonschema import Draft202012Validator, ValidationError
 
 from turboquant_pro import plugins
 from turboquant_pro.cli import build_parser, main
+from turboquant_pro.schemas import load_schema
 
 IN_TREE = {"per_channel", "polar"}
+KV_PLAN_VALIDATOR = Draft202012Validator(load_schema("kv_plan.schema.json"))
 
 
 # ------------------------------------------------------------------ fixtures
@@ -542,10 +545,15 @@ def test_plan_embeddings_requires_arg():
 
 
 # ------------------------------------------------------------------ plan kv
+def _validate_kv_plan(doc: dict) -> None:
+    KV_PLAN_VALIDATOR.validate(doc)
+
+
 def test_plan_kv_registry_model(capsys):
     rc = main(["plan", "kv", "--model", "llama-3-8b"])
     doc = json.loads(capsys.readouterr().out)
     assert rc == 0
+    _validate_kv_plan(doc)
     assert doc["schema"] == "turboquant-pro/kv-plan"
     assert doc["policy"]["key_bits"] and doc["policy"]["value_bits"]
     assert "risk_flags" in doc
@@ -554,6 +562,7 @@ def test_plan_kv_registry_model(capsys):
 def test_plan_kv_extreme_flags_key_risk(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--target", "extreme"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["key_bits"] < 4
     assert any("4-bit" in f for f in doc["risk_flags"])  # KV-keys risk surfaced
 
@@ -561,7 +570,18 @@ def test_plan_kv_extreme_flags_key_risk(capsys):
 def test_plan_kv_context_override(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--context", "4096"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["max_seq_len"] == 4096
+
+
+def test_plan_kv_schema_rejects_missing_required_policy_field(capsys):
+    main(["plan", "kv", "--model", "llama-3-8b"])
+    doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
+
+    del doc["policy"]["head_dim"]
+    with pytest.raises(ValidationError):
+        _validate_kv_plan(doc)
 
 
 def test_plan_kv_unresolved_model_exit_2(capsys):
