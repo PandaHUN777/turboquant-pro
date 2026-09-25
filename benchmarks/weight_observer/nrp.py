@@ -4,6 +4,10 @@
     python -m weight_observer.nrp code --commit SHA      # CPU: the pinned harness as one tar
     python -m weight_observer.nrp stage --commit SHA     # CPU: model weights + WikiText text
     python -m weight_observer.nrp run --commit SHA --models qwen2.5-0.5b [--dry-run]
+    python -m weight_observer.nrp explore --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp sens --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -118,6 +122,63 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 python -m weight_observer.run --model-key {key} --model-path {ROOT}/models/{key} \\
     --text {ROOT}/text --out {ROOT}/runs/{out}
 echo RUN_DONE {key}
+"""
+
+
+def explore_script(commit: str, key: str) -> str:
+    """EXPLORATORY (explore.py): the exact-Fisher pass, then its score against the run's KL."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.explore --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --out {ROOT}/explore/{key}
+python -m weight_observer.explore_score --run {ROOT}/runs/{key} --explore {ROOT}/explore/{key}
+echo EXPLORE_SCORED {key}
+"""
+
+
+def sens_script(commit: str, key: str) -> str:
+    """EXPLORATORY (sensitivity.py): single-matrix KLs, then the oracle scored beside the rest."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.sensitivity --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --out {ROOT}/explore/{key}
+python -m weight_observer.explore_score --run {ROOT}/runs/{key} \
+    --explore {ROOT}/explore/{key} --sens {ROOT}/explore/{key}/sensitivity.jsonl
+echo SENS_SCORED {key}
+"""
+
+
+def plans_script(commit: str, key: str) -> str:
+    """EXPLORATORY (plans.py eval): measured KL of the exact plans committed in planned/."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.plans eval --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --plans /tmp/code/weight_observer/planned/{key}.json \
+    --out {ROOT}/explore/{key}
+echo PLANS_EVALUATED {key}
+"""
+
+
+def fetch_script(key: str) -> str:
+    """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+    return f"""set -euo pipefail
+cd {ROOT}/explore/{key}
+echo FETCH_BEGIN
+tar -czf - . | base64 -w0
+echo
+echo FETCH_END
 """
 
 
@@ -238,9 +299,15 @@ def submit(desc) -> None:
     raise SystemExit(f"{desc.name}: no job appeared")
 
 
+SCRIPTS = {"explore": explore_script, "sens": sens_script, "plans": plans_script}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("setup", "stage", "code", "run"))
+    ap.add_argument(
+        "cmd",
+        choices=("setup", "stage", "code", "run", "explore", "sens", "plans", "fetch"),
+    )
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
@@ -298,6 +365,31 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
+    elif a.cmd in ("explore", "sens", "plans"):
+        if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
+            raise SystemExit("--commit must be a full sha")
+        for key in a.models.split(","):
+            m = measured(key)
+            if not m:
+                raise SystemExit(f"{key}: explore is sized from a measured run of it")
+            cpu, mem, why = request(key)
+            d = descriptor(
+                f"wo-{a.cmd}-{key.replace('.', '')}",
+                SCRIPTS[a.cmd](a.commit, key),
+                cpu,
+                mem,
+                "20Gi",
+                a.cmd,
+                gpu=1,
+            )
+            print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
+            items.append((d, True))
+    elif a.cmd == "fetch":
+        for key in a.models.split(","):
+            n = f"wo-fetch-{key.replace('.', '')}"
+            items.append(
+                (descriptor(n, fetch_script(key), 1, 2, "2Gi", "fetch"), False)
+            )
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):
         raise SystemExit(
