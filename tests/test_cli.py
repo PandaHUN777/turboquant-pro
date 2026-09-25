@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import json
 
+from jsonschema import Draft202012Validator, ValidationError
 import numpy as np
 import pytest
-from jsonschema import Draft202012Validator, ValidationError
 
 from turboquant_pro import plugins
 from turboquant_pro.cli import build_parser, main
